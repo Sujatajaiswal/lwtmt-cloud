@@ -66,22 +66,38 @@ function demoReading(base, sampleNo, scale = 1) {
 }
 
 async function seedDemoSurveyIfEnabled() {
-  if (String(process.env.SEED_DEMO_ON_START).toLowerCase() !== "true") {
-    return;
-  }
-
   const stationCode = process.env.DEMO_STATION_CODE || "SIM-STN-01";
   const rowCount = Number(process.env.DEMO_ROW_COUNT || 120);
-  const existing = await pool.query(
-    `SELECT COUNT(*)::int AS count
-     FROM survey_records
-     WHERE station_code = $1 OR survey_id IN (SELECT id FROM surveys WHERE station_code = $1)`,
+  const demoEnabled = String(process.env.SEED_DEMO_ON_START).toLowerCase() === "true";
+  const summary = await pool.query(
+    `SELECT
+       COUNT(*)::int AS total_count,
+       COUNT(*) FILTER (
+         WHERE station_code = $1 OR survey_id IN (SELECT id FROM surveys WHERE station_code = $1)
+       )::int AS demo_count,
+       MAX(recorded_at) FILTER (
+         WHERE station_code = $1 OR survey_id IN (SELECT id FROM surveys WHERE station_code = $1)
+       ) AS latest_demo_at
+     FROM survey_records`,
     [stationCode]
   );
 
-  if (existing.rows[0].count > 0) {
-    console.log(`Demo station ${stationCode} already has records; skipping demo seed.`);
+  const { total_count: totalCount, demo_count: demoCount, latest_demo_at: latestDemoAt } = summary.rows[0];
+  const latestDemoTime = latestDemoAt ? new Date(latestDemoAt).getTime() : 0;
+  const demoIsFresh = latestDemoTime > Date.now() - 24 * 60 * 60 * 1000;
+
+  if (!demoEnabled && totalCount > 0) {
+    console.log("Survey records already exist; skipping automatic demo seed.");
     return;
+  }
+
+  if (demoCount > 0 && demoIsFresh) {
+    console.log(`Demo station ${stationCode} already has fresh records; skipping demo seed.`);
+    return;
+  }
+
+  if (demoCount > 0) {
+    console.log(`Demo station ${stationCode} exists but is stale; adding fresh demo rows.`);
   }
 
   const now = new Date();
