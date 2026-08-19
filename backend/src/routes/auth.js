@@ -33,6 +33,17 @@ function envOperatorLogin(username, password) {
   return { id: 0, username: operatorUsername, role: "operator" };
 }
 
+function isDatabaseUnavailable(err) {
+  return [
+    "42P01",
+    "ENOTFOUND",
+    "ECONNREFUSED",
+    "ETIMEDOUT",
+    "ECONNRESET",
+    "EAI_AGAIN",
+  ].includes(err.code);
+}
+
 async function databaseUserLogin(username, password) {
   if (!process.env.DATABASE_URL) {
     return null;
@@ -69,10 +80,10 @@ router.post("/login", async (req, res) => {
     try {
       user = await databaseUserLogin(username, password);
     } catch (err) {
-      if (err.code !== "42P01") {
+      if (!isDatabaseUnavailable(err)) {
         throw err;
       }
-      console.warn("Postgres users table does not exist; falling back to operator env login.");
+      console.warn(`Postgres login unavailable (${err.code}); falling back to operator env login.`);
     }
 
     user = user || envOperatorLogin(username, password);
@@ -83,7 +94,7 @@ router.post("/login", async (req, res) => {
 
     const token = createSessionToken(user);
     setSessionCookie(res, token);
-    return res.json({ ok: true, username: user.username, role: user.role });
+    return res.json({ ok: true, username: user.username, role: user.role, token });
   } catch (err) {
     console.error("Login error:", err);
     return res.status(500).json({ error: "Login failed, please try again" });

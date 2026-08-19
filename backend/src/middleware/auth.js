@@ -3,6 +3,7 @@ const jwt = require("jsonwebtoken");
 const COOKIE_NAME = "lwtmt_session";
 const EXPIRES_IN_HOURS = Number(process.env.JWT_EXPIRES_IN_HOURS || 12);
 const JWT_SECRET = process.env.JWT_SECRET || "lwtmt-local-dev-secret";
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
 
 function createSessionToken(user) {
   return jwt.sign(
@@ -15,19 +16,34 @@ function createSessionToken(user) {
 function setSessionCookie(res, token) {
   res.cookie(COOKIE_NAME, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    secure: IS_PRODUCTION,
+    sameSite: IS_PRODUCTION ? "none" : "lax",
     maxAge: EXPIRES_IN_HOURS * 60 * 60 * 1000,
   });
 }
 
 function clearSessionCookie(res) {
-  res.clearCookie(COOKIE_NAME);
+  res.clearCookie(COOKIE_NAME, {
+    httpOnly: true,
+    secure: IS_PRODUCTION,
+    sameSite: IS_PRODUCTION ? "none" : "lax",
+  });
+}
+
+function getBearerToken(req) {
+  const authHeader = req.get("authorization") || "";
+  const [scheme, token] = authHeader.split(" ");
+
+  if (scheme && scheme.toLowerCase() === "bearer" && token) {
+    return token;
+  }
+
+  return null;
 }
 
 // Express middleware: rejects the request with 401 if there's no valid session cookie.
 function requireAuth(req, res, next) {
-  const token = req.cookies ? req.cookies[COOKIE_NAME] : null;
+  const token = (req.cookies ? req.cookies[COOKIE_NAME] : null) || getBearerToken(req);
   if (!token) {
     return res.status(401).json({ error: "Login required" });
   }
