@@ -14,6 +14,22 @@ function toNumber(value) {
 
 function toTimestamp(value) {
   if (!value) return null;
+  const text = String(value).trim();
+  const ddMmYyyy = text.match(/^(\d{2})-(\d{2})-(\d{4})[ T](\d{2}):(\d{2}):(\d{2})$/);
+
+  if (ddMmYyyy) {
+    const [, day, month, year, hour, minute, second] = ddMmYyyy;
+    const d = new Date(
+      Number(year),
+      Number(month) - 1,
+      Number(day),
+      Number(hour),
+      Number(minute),
+      Number(second)
+    );
+    return Number.isNaN(d.getTime()) ? null : d.toISOString();
+  }
+
   const d = new Date(value);
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }

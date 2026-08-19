@@ -6,10 +6,10 @@ import { useFilters } from "../context/FilterContext";
 import { api } from "../api";
 
 const SENSORS = [
-  { key: "gauge", label: "Gauge", unit: "mm", color: "#2563eb" },
-  { key: "crossover", label: "Cross Level", unit: "mm", color: "#15945f" },
-  { key: "cumulative_tilt", label: "Twist", unit: "mm/m", color: "#c24134" },
-  { key: "chainage", label: "Chainage", unit: "m", color: "#b7791f" },
+  { key: "gauge", label: "Gauge", unit: "mm", axisLabel: "Gauge (mm)", color: "#2563eb" },
+  { key: "crossover", label: "Crossover", unit: "mm", axisLabel: "Crossover (mm)", color: "#15945f" },
+  { key: "chainage", label: "Chainage", unit: "m", axisLabel: "Chainage", color: "#b7791f" },
+  { key: "cumulative_tilt", label: "Twist", unit: "mm", axisLabel: "Twist (mm)", color: "#c24134" },
 ];
 
 function formatDateTime(value) {
@@ -24,24 +24,26 @@ function formatDateTime(value) {
   });
 }
 
-function formatAxisTime(value) {
-  if (!value) return "";
-  return new Date(value).toLocaleString([], {
-    month: "short",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+function toChartPoints(records) {
+  return records
+    .map((record) => ({
+      ...record,
+      plot_distance: Number.isFinite(Number(record.distance)) ? Number(record.distance) : Number(record.chainage),
+    }))
+    .filter((record) => Number.isFinite(record.plot_distance));
 }
 
-function SensorTooltip({ active, payload, label }) {
+function SensorTooltip({ active, payload }) {
   if (!active || !payload?.length) return null;
   const row = payload[0].payload;
 
   return (
     <div className="chart-tooltip">
-      <div className="tooltip-time">{formatDateTime(label)}</div>
+      <div className="tooltip-time">{formatDateTime(row.recorded_at)}</div>
       <div>{payload[0].name}: {payload[0].value}</div>
+      <div>Distance: {row.distance ?? "-"}</div>
+      <div>Reference Type: {row.reference_type ?? "-"}</div>
+      <div>Reference Point: {row.reference_point ?? "-"}</div>
       <div>Chainage: {row.chainage ?? "-"}</div>
       <div>Sample: {row.sample_no ?? "-"}</div>
     </div>
@@ -70,7 +72,7 @@ export default function Graphs() {
     setPoints([]);
     api
       .graphData(timeRange.start, timeRange.end, station)
-      .then((res) => setPoints(res.points || []))
+      .then((res) => setPoints(toChartPoints(res.points || [])))
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [timeRange, station, canLoadGraph]);
@@ -79,7 +81,7 @@ export default function Graphs() {
     <div className="panel full-panel">
       <StepRail currentIndex={2} />
       <h1>Sensor Graphs</h1>
-      <p className="subtitle">Gauge, Cross Level, Twist, and Chainage plotted against date and time.</p>
+      <p className="subtitle">Gauge, Crossover, Chainage, and Twist plotted against distance with date and time available at each sample.</p>
 
       <div className="filter-summary">
         <span>
@@ -120,26 +122,39 @@ export default function Graphs() {
                 <span className="dot" style={{ background: sensor.color }} />
                 {sensor.label}
               </h3>
-              <p className="unit">{sensor.unit} vs. date & time</p>
-              <ResponsiveContainer width="100%" height={220}>
-                <LineChart data={points}>
+              <p className="unit">Y-axis: {sensor.axisLabel} | X-axis: Distance</p>
+              <ResponsiveContainer width="100%" height={260}>
+                <LineChart data={points} margin={{ top: 10, right: 22, bottom: 32, left: 20 }}>
                   <CartesianGrid stroke="var(--line)" strokeDasharray="3 3" />
                   <XAxis
-                    dataKey="recorded_at"
-                    tickFormatter={formatAxisTime}
+                    dataKey="plot_distance"
+                    type="number"
+                    domain={["dataMin", "dataMax"]}
                     stroke="var(--muted)"
                     fontSize={11}
                     minTickGap={28}
-                    label={{ value: "Date & Time", position: "insideBottom", offset: -4, fill: "var(--muted)", fontSize: 11 }}
+                    label={{ value: "Distance", position: "insideBottom", offset: -18, fill: "var(--muted)", fontSize: 12 }}
                   />
-                  <YAxis stroke="var(--muted)" fontSize={11} />
+                  <YAxis
+                    stroke="var(--muted)"
+                    fontSize={11}
+                    label={{
+                      value: sensor.axisLabel,
+                      angle: -90,
+                      position: "insideLeft",
+                      fill: "var(--muted)",
+                      fontSize: 12,
+                      offset: -8,
+                    }}
+                  />
                   <Tooltip content={<SensorTooltip />} />
                   <Line
                     type="monotone"
                     dataKey={sensor.key}
                     name={`${sensor.label} (${sensor.unit})`}
                     stroke={sensor.color}
-                    dot={false}
+                    dot={points.length <= 250 ? { r: 2 } : false}
+                    activeDot={{ r: 4 }}
                     strokeWidth={2}
                     connectNulls
                   />

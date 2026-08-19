@@ -21,6 +21,20 @@ function valueFor(record, key) {
   return record[key] ?? "";
 }
 
+const DOCUMENT_COLUMNS = [
+  { key: "sample_no", label: "Sample No" },
+  { key: "recorded_at", label: "Date & Time" },
+  { key: "reference_type", label: "Reference Type" },
+  { key: "reference_point", label: "Reference Point" },
+  { key: "latitude", label: "Latitude" },
+  { key: "longitude", label: "Longitude" },
+  { key: "distance", label: "Distance" },
+  { key: "gauge", label: "Gauge" },
+  { key: "crossover", label: "Crossover" },
+  { key: "absolute_tilt", label: "Absolute Tilt" },
+  { key: "cumulative_tilt", label: "Cumulative Tilt" },
+];
+
 export default function DataRecords() {
   const { timeRange, station } = useFilters();
   const navigate = useNavigate();
@@ -37,7 +51,7 @@ export default function DataRecords() {
     api
       .records(timeRange.start, timeRange.end, station)
       .then((res) => {
-        setColumns(res.columns || []);
+        setColumns(DOCUMENT_COLUMNS);
         setRecords(res.records || []);
       })
       .catch((err) => setError(err.message))

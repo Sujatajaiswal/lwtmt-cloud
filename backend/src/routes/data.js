@@ -7,18 +7,15 @@ const router = express.Router();
 const RECORD_COLUMNS = [
   ["sample_no", "Sample No"],
   ["recorded_at", "Date & Time"],
-  ["station_code", "Station"],
-  ["curve_no", "Curve"],
-  ["level_crossing_no", "Level crossing"],
-  ["hectometer_post", "Hectometer Post"],
+  ["reference_type", "Reference Type"],
   ["reference_point", "Reference Point"],
-  ["latitude", "Lattitude"],
+  ["latitude", "Latitude"],
   ["longitude", "Longitude"],
   ["distance", "Distance"],
   ["gauge", "Gauge"],
   ["crossover", "Crossover"],
-  ["cumulative_tilt", "Twist"],
-  ["chainage", "Chainage"],
+  ["absolute_tilt", "Absolute Tilt"],
+  ["cumulative_tilt", "Cumulative Tilt"],
 ];
 
 function isMissingTable(err) {
@@ -229,8 +226,8 @@ router.get("/stations", requireAuth, async (req, res) => {
 });
 
 // GET /api/graph-data?start=...&end=...&station=...
-// Returns the 4 sensor series (Gauge, Cross Level, Twist, Chainage)
-// plotted against date/time, for the given time range + station (Page 4).
+// Returns the 4 sensor series (Gauge, Crossover, Absolute Tilt, Cumulative Tilt)
+// with distance and date/time for graph plotting.
 router.get("/graph-data", requireAuth, async (req, res) => {
   const { start, end, station } = req.query;
 
