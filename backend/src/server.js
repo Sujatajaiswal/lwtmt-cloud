@@ -59,11 +59,101 @@ async function applySchemaIfConfigured() {
   console.log("Database schema is ready.");
 }
 
+function demoReading(base, sampleNo, scale = 1) {
+  const wave = Math.sin(sampleNo / 8) * scale;
+  const drift = Math.cos(sampleNo / 17) * scale * 0.35;
+  return Number((base + wave + drift).toFixed(3));
+}
+
+async function seedDemoSurveyIfEnabled() {
+  if (String(process.env.SEED_DEMO_ON_START).toLowerCase() !== "true") {
+    return;
+  }
+
+  const stationCode = process.env.DEMO_STATION_CODE || "SIM-STN-01";
+  const rowCount = Number(process.env.DEMO_ROW_COUNT || 120);
+  const existing = await pool.query(
+    `SELECT COUNT(*)::int AS count
+     FROM survey_records
+     WHERE station_code = $1 OR survey_id IN (SELECT id FROM surveys WHERE station_code = $1)`,
+    [stationCode]
+  );
+
+  if (existing.rows[0].count > 0) {
+    console.log(`Demo station ${stationCode} already has records; skipping demo seed.`);
+    return;
+  }
+
+  const now = new Date();
+  const start = new Date(now.getTime() - 2 * 60 * 60 * 1000);
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const surveyResult = await client.query(
+      `INSERT INTO surveys (filename, station_code, surveyor_name, designation, row_count)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING id`,
+      [`demo_${stationCode}_${Date.now()}.csv`, stationCode, "Demo Operator", "Simulation", rowCount]
+    );
+    const surveyId = surveyResult.rows[0].id;
+
+    const insertText = `
+      INSERT INTO survey_records (
+        survey_id, sample_no, recorded_at, reference_type, reference_point,
+        station_code, chainage, loop_line_siding, turnout_no, curve_no,
+        level_crossing_no, hectometer_post, latitude, longitude, distance,
+        gauge, crossover, absolute_tilt, cumulative_tilt
+      ) VALUES (
+        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19
+      )`;
+
+    for (let i = 1; i <= rowCount; i += 1) {
+      const recordedAt = new Date(start.getTime() + i * 60 * 1000);
+      const chainage = Number((1000 + i * 2.5).toFixed(2));
+      const crossLevel = demoReading(0, i, 1.4);
+      const twist = demoReading(0, i, 0.5);
+
+      await client.query(insertText, [
+        surveyId,
+        i,
+        recordedAt.toISOString(),
+        "Demo",
+        `RP-${String(i).padStart(3, "0")}`,
+        stationCode,
+        chainage,
+        "Main",
+        null,
+        null,
+        null,
+        null,
+        13.0827 + i * 0.00001,
+        80.2707 + i * 0.00001,
+        Number((i * 2.5).toFixed(2)),
+        demoReading(1676, i, 2.8),
+        crossLevel,
+        crossLevel,
+        twist,
+      ]);
+    }
+
+    await client.query("COMMIT");
+    console.log(`Seeded ${rowCount} demo rows for station ${stationCode}.`);
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 async function start() {
   try {
     await applySchemaIfConfigured();
+    await seedDemoSurveyIfEnabled();
   } catch (err) {
-    console.error("Database schema initialization failed:", err);
+    console.error("Database initialization failed:", err);
   }
 
   const PORT = process.env.PORT || 4000;
