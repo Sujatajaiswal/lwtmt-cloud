@@ -31,15 +31,15 @@ function buildRecordWhere({ start, end, station }) {
 
   if (station) {
     params.push(station);
-    conditions.push(`station_code = $${params.length}`);
+    conditions.push(`COALESCE(sr.station_code, s.station_code) = $${params.length}`);
   }
   if (start) {
     params.push(start);
-    conditions.push(`recorded_at >= $${params.length}`);
+    conditions.push(`sr.recorded_at >= $${params.length}`);
   }
   if (end) {
     params.push(end);
-    conditions.push(`recorded_at <= $${params.length}`);
+    conditions.push(`sr.recorded_at <= $${params.length}`);
   }
 
   return {
@@ -53,13 +53,15 @@ async function loadRecords(filters) {
 
   const query = `
     SELECT
-      survey_id, sample_no, recorded_at, reference_type, reference_point,
-      station_code, chainage, loop_line_siding, turnout_no, curve_no,
-      level_crossing_no, hectometer_post, latitude, longitude, distance,
-      gauge, crossover, absolute_tilt, cumulative_tilt
-    FROM survey_records
+      sr.survey_id, sr.sample_no, sr.recorded_at, sr.reference_type, sr.reference_point,
+      COALESCE(sr.station_code, s.station_code) AS station_code,
+      sr.chainage, sr.loop_line_siding, sr.turnout_no, sr.curve_no,
+      sr.level_crossing_no, sr.hectometer_post, sr.latitude, sr.longitude, sr.distance,
+      sr.gauge, sr.crossover, sr.absolute_tilt, sr.cumulative_tilt
+    FROM survey_records sr
+    JOIN surveys s ON s.id = sr.survey_id
     ${where.text}
-    ORDER BY recorded_at ASC NULLS LAST, sample_no ASC, chainage ASC NULLS LAST, id ASC`;
+    ORDER BY sr.recorded_at ASC NULLS LAST, sr.sample_no ASC, sr.chainage ASC NULLS LAST, sr.id ASC`;
 
   const result = await pool.query(query, where.params);
   return result.rows;
@@ -194,21 +196,22 @@ router.get("/stations", requireAuth, async (req, res) => {
   const { start, end } = req.query;
 
   try {
-    const conditions = ["station_code IS NOT NULL"];
+    const conditions = ["COALESCE(sr.station_code, s.station_code) IS NOT NULL"];
     const params = [];
 
     if (start) {
       params.push(start);
-      conditions.push(`recorded_at >= $${params.length}`);
+      conditions.push(`sr.recorded_at >= $${params.length}`);
     }
     if (end) {
       params.push(end);
-      conditions.push(`recorded_at <= $${params.length}`);
+      conditions.push(`sr.recorded_at <= $${params.length}`);
     }
 
     const query = `
-      SELECT DISTINCT station_code
-      FROM survey_records
+      SELECT DISTINCT COALESCE(sr.station_code, s.station_code) AS station_code
+      FROM survey_records sr
+      JOIN surveys s ON s.id = sr.survey_id
       WHERE ${conditions.join(" AND ")}
       ORDER BY station_code`;
 
