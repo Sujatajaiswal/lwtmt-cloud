@@ -21,6 +21,10 @@ const RECORD_COLUMNS = [
   ["chainage", "Chainage"],
 ];
 
+function isMissingTable(err) {
+  return err.code === "42P01";
+}
+
 function buildRecordWhere({ start, end, station }) {
   const conditions = [];
   const params = [];
@@ -211,6 +215,11 @@ router.get("/stations", requireAuth, async (req, res) => {
     const result = await pool.query(query, params);
     res.json({ stations: result.rows.map((r) => r.station_code) });
   } catch (err) {
+    if (isMissingTable(err)) {
+      console.warn("survey_records table does not exist; returning an empty station list.");
+      return res.json({ stations: [] });
+    }
+
     console.error("Stations query error:", err);
     res.status(500).json({ error: "Failed to load stations" });
   }
@@ -230,6 +239,11 @@ router.get("/graph-data", requireAuth, async (req, res) => {
     const records = await loadRecords({ start, end, station });
     res.json({ station, start, end, points: records });
   } catch (err) {
+    if (isMissingTable(err)) {
+      console.warn("survey_records table does not exist; returning empty graph data.");
+      return res.json({ station, start, end, points: [] });
+    }
+
     if (err.statusCode === 400) {
       return res.status(400).json({ error: err.message });
     }
@@ -253,6 +267,17 @@ router.get("/records", requireAuth, async (req, res) => {
       records,
     });
   } catch (err) {
+    if (isMissingTable(err)) {
+      console.warn("survey_records table does not exist; returning empty records.");
+      return res.json({
+        station,
+        start,
+        end,
+        columns: RECORD_COLUMNS.map(([key, label]) => ({ key, label })),
+        records: [],
+      });
+    }
+
     if (err.statusCode === 400) {
       return res.status(400).json({ error: err.message });
     }
@@ -284,6 +309,27 @@ router.get("/records/export", requireAuth, async (req, res) => {
     res.setHeader("Content-Disposition", `attachment; filename="${filenameFor(station, "csv")}"`);
     return res.send(recordsToCsv(records));
   } catch (err) {
+    if (isMissingTable(err)) {
+      console.warn("survey_records table does not exist; exporting an empty file.");
+      const emptyRecords = [];
+
+      if (format === "excel") {
+        res.setHeader("Content-Type", "application/vnd.ms-excel; charset=utf-8");
+        res.setHeader("Content-Disposition", `attachment; filename="${filenameFor(station, "xls")}"`);
+        return res.send(recordsToExcelHtml(emptyRecords, station));
+      }
+
+      if (format === "pdf") {
+        res.setHeader("Content-Type", "application/pdf");
+        res.setHeader("Content-Disposition", `attachment; filename="${filenameFor(station, "pdf")}"`);
+        return res.send(recordsToPdf(emptyRecords, station, start, end));
+      }
+
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="${filenameFor(station, "csv")}"`);
+      return res.send(recordsToCsv(emptyRecords));
+    }
+
     if (err.statusCode === 400) {
       return res.status(400).json({ error: err.message });
     }

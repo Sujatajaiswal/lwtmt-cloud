@@ -1,8 +1,11 @@
 require("dotenv").config();
+const fs = require("fs");
+const path = require("path");
 const express = require("express");
 const cookieParser = require("cookie-parser");
 const cors = require("cors");
 
+const pool = require("./db/pool");
 const authRoutes = require("./routes/auth");
 const ingestRoutes = require("./routes/ingest");
 const dataRoutes = require("./routes/data");
@@ -44,7 +47,29 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: "Internal server error" });
 });
 
-const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => {
-  console.log(`LWTMT cloud backend listening on port ${PORT}`);
-});
+async function applySchemaIfConfigured() {
+  if (!process.env.DATABASE_URL) {
+    console.warn("DATABASE_URL is not set; skipping database schema initialization.");
+    return;
+  }
+
+  const schemaPath = path.join(__dirname, "..", "schema.sql");
+  const sql = fs.readFileSync(schemaPath, "utf8");
+  await pool.query(sql);
+  console.log("Database schema is ready.");
+}
+
+async function start() {
+  try {
+    await applySchemaIfConfigured();
+  } catch (err) {
+    console.error("Database schema initialization failed:", err);
+  }
+
+  const PORT = process.env.PORT || 4000;
+  app.listen(PORT, () => {
+    console.log(`LWTMT cloud backend listening on port ${PORT}`);
+  });
+}
+
+start();
