@@ -17,22 +17,16 @@ function formatDateTime(value) {
 }
 
 function valueFor(record, key) {
-  if (key === "recorded_at") return formatDateTime(record[key]);
+  if (key === "date_time") return formatDateTime(record[key]);
   return record[key] ?? "";
 }
 
 const DOCUMENT_COLUMNS = [
-  { key: "sample_no", label: "Sample No" },
-  { key: "recorded_at", label: "Date & Time" },
-  { key: "reference_type", label: "Reference Type" },
-  { key: "reference_point", label: "Reference Point" },
-  { key: "latitude", label: "Latitude" },
-  { key: "longitude", label: "Longitude" },
-  { key: "distance", label: "Distance" },
-  { key: "gauge", label: "Gauge" },
-  { key: "crossover", label: "Crossover" },
-  { key: "absolute_tilt", label: "Absolute Tilt" },
-  { key: "cumulative_tilt", label: "Cumulative Tilt" },
+  { key: "serial_no", label: "S.NO" },
+  { key: "date_time", label: "Date and Time" },
+  { key: "type", label: "Type" },
+  { key: "view_csv", label: "View CSV" },
+  { key: "export", label: "Export" },
 ];
 
 export default function DataRecords() {
@@ -58,13 +52,11 @@ export default function DataRecords() {
       .finally(() => setLoading(false));
   }, [timeRange, station]);
 
-  const exportUrl = (format) => api.recordsExportUrl(timeRange.start, timeRange.end, station, format);
-
   return (
     <div className="panel full-panel">
       <StepRail currentIndex={3} />
       <h1>CSV Records</h1>
-      <p className="subtitle">Incoming BeagleBone rows with reference points, location, distance, gauge, crossover, twist, and chainage.</p>
+      <p className="subtitle">Uploaded cloud CSV files from each BeagleBone start and stop session.</p>
 
       <div className="filter-summary">
         <span>
@@ -79,17 +71,8 @@ export default function DataRecords() {
           </b>
         </span>
         <span>
-          Rows: <b>{records.length}</b>
+          CSV Files: <b>{records.length}</b>
         </span>
-      </div>
-
-      <div className="export-bar">
-        <a className="ghost-btn export-link" href={exportUrl("excel")}>
-          Download Excel
-        </a>
-        <a className="ghost-btn export-link" href={exportUrl("pdf")}>
-          Download PDF
-        </a>
       </div>
 
       {loading && <div className="loading-text">Loading CSV records...</div>}
@@ -97,8 +80,8 @@ export default function DataRecords() {
 
       {!loading && !error && records.length === 0 && (
         <div className="empty-state">
-          <h2>No CSV data found</h2>
-          <p>Uploaded BBB survey rows will appear here automatically.</p>
+          <h2>No CSV files found</h2>
+          <p>Uploaded BBB survey files will appear here automatically.</p>
         </div>
       )}
 
@@ -114,10 +97,35 @@ export default function DataRecords() {
             </thead>
             <tbody>
               {records.map((record, index) => (
-                <tr key={`${record.survey_id}-${record.sample_no}-${index}`}>
-                  {columns.map((column) => (
-                    <td key={column.key}>{valueFor(record, column.key)}</td>
-                  ))}
+                <tr key={`${record.survey_id || record.filename || "survey"}-${index}`}>
+                  {columns.map((column) => {
+                    if (column.key === "view_csv") {
+                      return (
+                        <td key={column.key}>
+                          <a className="table-action-btn" href={record.view_csv_url} target="_blank" rel="noreferrer">
+                            View
+                          </a>
+                        </td>
+                      );
+                    }
+
+                    if (column.key === "export") {
+                      return (
+                        <td key={column.key}>
+                          <div className="table-action-group">
+                            <a className="table-action-btn" href={record.export_excel_url}>
+                              Excel
+                            </a>
+                            <a className="table-action-btn" href={record.export_pdf_url}>
+                              PDF
+                            </a>
+                          </div>
+                        </td>
+                      );
+                    }
+
+                    return <td key={column.key}>{valueFor(record, column.key)}</td>;
+                  })}
                 </tr>
               ))}
             </tbody>

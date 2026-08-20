@@ -703,7 +703,7 @@ a {
 
 .records-table {
   width: 100%;
-  min-width: 1320px;
+  min-width: 860px;
   border-collapse: collapse;
   font-size: 13px;
 }
@@ -729,6 +729,32 @@ a {
 
 .records-table tr:hover td {
   background: #f8fbff;
+}
+
+.table-action-group {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.table-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  min-width: 68px;
+  padding: 0 12px;
+  border-radius: 6px;
+  background: #ffffff;
+  border: 1px solid #cbd5df;
+  color: var(--text);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.table-action-btn:hover {
+  border-color: var(--accent);
+  color: #1d4ed8;
 }
 
 .empty-state {

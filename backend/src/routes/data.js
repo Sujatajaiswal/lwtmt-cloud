@@ -18,6 +18,14 @@ const RECORD_COLUMNS = [
   ["cumulative_tilt", "Cumulative Tilt"],
 ];
 
+const SURVEY_COLUMNS = [
+  ["serial_no", "S.NO"],
+  ["date_time", "Date and Time"],
+  ["type", "Type"],
+  ["view_csv", "View CSV"],
+  ["export", "Export"],
+];
+
 function isMissingTable(err) {
   return err.code === "42P01";
 }
@@ -45,8 +53,54 @@ function buildRecordWhere({ start, end, station }) {
   };
 }
 
+function buildSurveyWhere({ start, end, station }) {
+  const conditions = [];
+  const params = [];
+
+  if (station) {
+    params.push(station);
+    conditions.push(
+      `(s.station_code = $${params.length} OR EXISTS (
+        SELECT 1 FROM survey_records sr_station
+        WHERE sr_station.survey_id = s.id AND sr_station.station_code = $${params.length}
+      ))`
+    );
+  }
+  if (start) {
+    params.push(start);
+    conditions.push(
+      `(s.uploaded_at >= $${params.length} OR EXISTS (
+        SELECT 1 FROM survey_records sr_start
+        WHERE sr_start.survey_id = s.id AND sr_start.recorded_at >= $${params.length}
+      ))`
+    );
+  }
+  if (end) {
+    params.push(end);
+    conditions.push(
+      `(s.uploaded_at <= $${params.length} OR EXISTS (
+        SELECT 1 FROM survey_records sr_end
+        WHERE sr_end.survey_id = s.id AND sr_end.recorded_at <= $${params.length}
+      ))`
+    );
+  }
+
+  return {
+    text: conditions.length ? `WHERE ${conditions.join(" AND ")}` : "",
+    params,
+  };
+}
+
+function buildSurveyIdWhere({ surveyId }) {
+  if (!surveyId) {
+    return { text: "", params: [] };
+  }
+
+  return { text: "WHERE sr.survey_id = $1", params: [surveyId] };
+}
+
 async function loadRecords(filters) {
-  const where = buildRecordWhere(filters);
+  const where = filters.surveyId ? buildSurveyIdWhere(filters) : buildRecordWhere(filters);
 
   const query = `
     SELECT
@@ -62,6 +116,41 @@ async function loadRecords(filters) {
 
   const result = await pool.query(query, where.params);
   return result.rows;
+}
+
+async function loadSurveyRows(filters, baseUrl) {
+  const where = buildSurveyWhere(filters);
+
+  const query = `
+    SELECT
+      s.id AS survey_id,
+      s.filename,
+      s.station_code,
+      COALESCE(MIN(sr.recorded_at), s.uploaded_at) AS date_time,
+      COALESCE(
+        NULLIF((ARRAY_AGG(sr.reference_type ORDER BY sr.recorded_at ASC NULLS LAST, sr.sample_no ASC))[1], ''),
+        'Survey'
+      ) AS type,
+      COALESCE(s.row_count, COUNT(sr.id)::int, 0) AS row_count
+    FROM surveys s
+    LEFT JOIN survey_records sr ON sr.survey_id = s.id
+    ${where.text}
+    GROUP BY s.id
+    ORDER BY date_time DESC NULLS LAST, s.id DESC`;
+
+  const result = await pool.query(query, where.params);
+  return result.rows.map((row, index) => ({
+    serial_no: index + 1,
+    survey_id: row.survey_id,
+    filename: row.filename,
+    station_code: row.station_code,
+    date_time: row.date_time,
+    type: row.type || "Survey",
+    row_count: Number(row.row_count || 0),
+    view_csv_url: `${baseUrl}/records/export?format=csv&surveyId=${encodeURIComponent(row.survey_id)}&disposition=inline`,
+    export_excel_url: `${baseUrl}/records/export?format=excel&surveyId=${encodeURIComponent(row.survey_id)}`,
+    export_pdf_url: `${baseUrl}/records/export?format=pdf&surveyId=${encodeURIComponent(row.survey_id)}`,
+  }));
 }
 
 function formatDateTime(value) {
@@ -187,6 +276,13 @@ function filenameFor(station, ext) {
   return `lwtmt_${safeStation}_records.${ext}`;
 }
 
+function surveyFilename(record, ext) {
+  const base = String(record?.filename || `survey_${record?.survey_id || "records"}`)
+    .replace(/\.[^.]+$/, "")
+    .replace(/[^a-z0-9_-]+/gi, "_");
+  return `${base}.${ext}`;
+}
+
 // GET /api/stations?start=...&end=...
 // Returns distinct station codes seen within an optional time range (Page 3 dropdown).
 router.get("/stations", requireAuth, async (req, res) => {
@@ -253,27 +349,27 @@ router.get("/graph-data", requireAuth, async (req, res) => {
 });
 
 // GET /api/records?start=...&end=...&station=...
-// Returns CSV-like table rows for the records dashboard.
+// Returns one row per uploaded CSV/session for the records dashboard.
 router.get("/records", requireAuth, async (req, res) => {
   const { start, end, station } = req.query;
 
   try {
-    const records = await loadRecords({ start, end, station });
+    const records = await loadSurveyRows({ start, end, station }, `${req.protocol}://${req.get("host")}/api`);
     res.json({
       station,
       start,
       end,
-      columns: RECORD_COLUMNS.map(([key, label]) => ({ key, label })),
+      columns: SURVEY_COLUMNS.map(([key, label]) => ({ key, label })),
       records,
     });
   } catch (err) {
     if (isMissingTable(err)) {
-      console.warn("survey_records table does not exist; returning empty records.");
+      console.warn("surveys table does not exist; returning empty records.");
       return res.json({
         station,
         start,
         end,
-        columns: RECORD_COLUMNS.map(([key, label]) => ({ key, label })),
+        columns: SURVEY_COLUMNS.map(([key, label]) => ({ key, label })),
         records: [],
       });
     }
@@ -286,27 +382,41 @@ router.get("/records", requireAuth, async (req, res) => {
   }
 });
 
-// GET /api/records/export?format=csv|excel|pdf&start=...&end=...&station=...
+// GET /api/records/export?format=csv|excel|pdf&start=...&end=...&station=...&surveyId=...
 router.get("/records/export", requireAuth, async (req, res) => {
-  const { start, end, station, format = "csv" } = req.query;
+  const { start, end, station, surveyId, disposition = "attachment", format = "csv" } = req.query;
 
   try {
-    const records = await loadRecords({ start, end, station });
+    const records = await loadRecords({ start, end, station, surveyId });
+    const survey = surveyId
+      ? (await pool.query("SELECT id AS survey_id, filename FROM surveys WHERE id = $1", [surveyId])).rows[0]
+      : null;
 
     if (format === "excel") {
       res.setHeader("Content-Type", "application/vnd.ms-excel; charset=utf-8");
-      res.setHeader("Content-Disposition", `attachment; filename="${filenameFor(station, "xls")}"`);
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${survey ? surveyFilename(survey, "xls") : filenameFor(station, "xls")}"`
+      );
       return res.send(recordsToExcelHtml(records, station));
     }
 
     if (format === "pdf") {
       res.setHeader("Content-Type", "application/pdf");
-      res.setHeader("Content-Disposition", `attachment; filename="${filenameFor(station, "pdf")}"`);
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${survey ? surveyFilename(survey, "pdf") : filenameFor(station, "pdf")}"`
+      );
       return res.send(recordsToPdf(records, station, start, end));
     }
 
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
-    res.setHeader("Content-Disposition", `attachment; filename="${filenameFor(station, "csv")}"`);
+    res.setHeader(
+      "Content-Disposition",
+      `${disposition === "inline" ? "inline" : "attachment"}; filename="${
+        survey ? surveyFilename(survey, "csv") : filenameFor(station, "csv")
+      }"`
+    );
     return res.send(recordsToCsv(records));
   } catch (err) {
     if (isMissingTable(err)) {
