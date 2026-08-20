@@ -14,18 +14,26 @@ function toNumber(value) {
 
 function toTimestamp(value) {
   if (!value) return null;
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value.toISOString();
+  }
   const text = String(value).trim();
-  const ddMmYyyy = text.match(/^(\d{2})-(\d{2})-(\d{4})[ T](\d{2}):(\d{2}):(\d{2})$/);
+  const ddMmYyyy = text.match(
+    /^(\d{1,2})-(\d{1,2})-(\d{4})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/
+  );
 
   if (ddMmYyyy) {
-    const [, day, month, year, hour, minute, second] = ddMmYyyy;
+    const [, day, month, year, hour = "0", minute = "0", second = "0"] = ddMmYyyy;
+    const offsetMinutes = Number(process.env.CSV_TIMEZONE_OFFSET_MINUTES || 330);
     const d = new Date(
-      Number(year),
-      Number(month) - 1,
-      Number(day),
-      Number(hour),
-      Number(minute),
-      Number(second)
+      Date.UTC(
+        Number(year),
+        Number(month) - 1,
+        Number(day),
+        Number(hour),
+        Number(minute),
+        Number(second)
+      ) - offsetMinutes * 60 * 1000
     );
     return Number.isNaN(d.getTime()) ? null : d.toISOString();
   }
