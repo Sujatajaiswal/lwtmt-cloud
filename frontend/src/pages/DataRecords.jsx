@@ -33,7 +33,7 @@ function valueFor(record, key) {
 const DOCUMENT_COLUMNS = [
   { key: "serial_no", label: "S.NO" },
   { key: "date_time", label: "Date and Time" },
-  { key: "type", label: "Type" },
+  { key: "station_no", label: "Station No" },
   { key: "view_csv", label: "View CSV" },
   { key: "export", label: "Export" },
 ];
