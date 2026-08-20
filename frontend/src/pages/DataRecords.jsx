@@ -6,7 +6,9 @@ import { api } from "../api";
 
 function formatDateTime(value) {
   if (!value) return "";
-  return new Date(value).toLocaleString([], {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleString([], {
     year: "numeric",
     month: "short",
     day: "2-digit",
@@ -17,7 +19,14 @@ function formatDateTime(value) {
 }
 
 function valueFor(record, key) {
-  if (key === "date_time") return formatDateTime(record[key]);
+  if (key === "date_time") {
+    const started = formatDateTime(record.started_at || record.date_time);
+    const stopped = formatDateTime(record.stopped_at);
+    if (started && stopped && started !== stopped) {
+      return `${started} -> ${stopped}`;
+    }
+    return started || stopped;
+  }
   return record[key] ?? "";
 }
 

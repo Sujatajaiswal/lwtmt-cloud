@@ -69,19 +69,19 @@ function buildSurveyWhere({ start, end, station }) {
   if (start) {
     params.push(start);
     conditions.push(
-      `(s.uploaded_at >= $${params.length} OR EXISTS (
-        SELECT 1 FROM survey_records sr_start
-        WHERE sr_start.survey_id = s.id AND sr_start.recorded_at >= $${params.length}
-      ))`
+      `COALESCE(
+        (SELECT MAX(sr_end.recorded_at) FROM survey_records sr_end WHERE sr_end.survey_id = s.id),
+        s.uploaded_at
+      ) >= $${params.length}`
     );
   }
   if (end) {
     params.push(end);
     conditions.push(
-      `(s.uploaded_at <= $${params.length} OR EXISTS (
-        SELECT 1 FROM survey_records sr_end
-        WHERE sr_end.survey_id = s.id AND sr_end.recorded_at <= $${params.length}
-      ))`
+      `COALESCE(
+        (SELECT MIN(sr_start.recorded_at) FROM survey_records sr_start WHERE sr_start.survey_id = s.id),
+        s.uploaded_at
+      ) <= $${params.length}`
     );
   }
 
@@ -126,7 +126,8 @@ async function loadSurveyRows(filters, baseUrl) {
       s.id AS survey_id,
       s.filename,
       s.station_code,
-      COALESCE(MIN(sr.recorded_at), s.uploaded_at) AS date_time,
+      COALESCE(MIN(sr.recorded_at), s.uploaded_at) AS started_at,
+      COALESCE(MAX(sr.recorded_at), s.uploaded_at) AS stopped_at,
       COALESCE(
         NULLIF((ARRAY_AGG(sr.reference_type ORDER BY sr.recorded_at ASC NULLS LAST, sr.sample_no ASC))[1], ''),
         'Survey'
@@ -136,7 +137,7 @@ async function loadSurveyRows(filters, baseUrl) {
     LEFT JOIN survey_records sr ON sr.survey_id = s.id
     ${where.text}
     GROUP BY s.id
-    ORDER BY date_time DESC NULLS LAST, s.id DESC`;
+    ORDER BY started_at DESC NULLS LAST, s.id DESC`;
 
   const result = await pool.query(query, where.params);
   return result.rows.map((row, index) => ({
@@ -144,7 +145,9 @@ async function loadSurveyRows(filters, baseUrl) {
     survey_id: row.survey_id,
     filename: row.filename,
     station_code: row.station_code,
-    date_time: row.date_time,
+    date_time: row.started_at,
+    started_at: row.started_at,
+    stopped_at: row.stopped_at,
     type: row.type || "Survey",
     row_count: Number(row.row_count || 0),
     view_csv_url: `${baseUrl}/records/export?format=csv&surveyId=${encodeURIComponent(row.survey_id)}&disposition=inline`,
@@ -289,26 +292,28 @@ router.get("/stations", requireAuth, async (req, res) => {
   const { start, end } = req.query;
 
   try {
-    const conditions = ["COALESCE(sr.station_code, s.station_code) IS NOT NULL"];
-    const params = [];
-
-    if (start) {
-      params.push(start);
-      conditions.push(`sr.recorded_at >= $${params.length}`);
-    }
-    if (end) {
-      params.push(end);
-      conditions.push(`sr.recorded_at <= $${params.length}`);
-    }
+    const where = buildSurveyWhere({ start, end, station: "" });
+    const conditions = ["station_code IS NOT NULL"];
 
     const query = `
-      SELECT DISTINCT COALESCE(sr.station_code, s.station_code) AS station_code
-      FROM survey_records sr
-      JOIN surveys s ON s.id = sr.survey_id
-      WHERE ${conditions.join(" AND ")}
+      SELECT DISTINCT station_code
+      FROM (
+        SELECT
+          s.id,
+          COALESCE(
+            s.station_code,
+            (ARRAY_AGG(sr.station_code ORDER BY sr.recorded_at ASC NULLS LAST, sr.sample_no ASC)
+              FILTER (WHERE sr.station_code IS NOT NULL AND sr.station_code <> ''))[1]
+          ) AS station_code
+        FROM surveys s
+        LEFT JOIN survey_records sr ON sr.survey_id = s.id
+        ${where.text}
+        GROUP BY s.id
+      ) survey_stations
+      WHERE ${conditions[0]}
       ORDER BY station_code`;
 
-    const result = await pool.query(query, params);
+    const result = await pool.query(query, where.params);
     res.json({ stations: result.rows.map((r) => r.station_code) });
   } catch (err) {
     if (isMissingTable(err)) {
