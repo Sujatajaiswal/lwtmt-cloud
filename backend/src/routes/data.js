@@ -150,7 +150,7 @@ async function loadSurveyRows(filters, baseUrl) {
     stopped_at: row.stopped_at,
     station_no: row.station_code || "",
     row_count: Number(row.row_count || 0),
-    view_csv_url: `${baseUrl}/records/export?format=excel&surveyId=${encodeURIComponent(row.survey_id)}&disposition=inline`,
+    view_csv_url: `${baseUrl}/records/export?format=csv&surveyId=${encodeURIComponent(row.survey_id)}&disposition=inline`,
     export_excel_url: `${baseUrl}/records/export?format=excel&surveyId=${encodeURIComponent(row.survey_id)}`,
     export_pdf_url: `${baseUrl}/records/export?format=pdf&surveyId=${encodeURIComponent(row.survey_id)}`,
   }));
@@ -401,15 +401,10 @@ router.get("/records/export", requireAuth, async (req, res) => {
       : null;
 
     if (format === "excel") {
-      res.setHeader(
-        "Content-Type",
-        disposition === "inline" ? "text/html; charset=utf-8" : "application/vnd.ms-excel; charset=utf-8"
-      );
+      res.setHeader("Content-Type", "application/vnd.ms-excel; charset=utf-8");
       res.setHeader(
         "Content-Disposition",
-        `${disposition === "inline" ? "inline" : "attachment"}; filename="${
-          survey ? surveyFilename(survey, "xls") : filenameFor(station, "xls")
-        }"`
+        `attachment; filename="${survey ? surveyFilename(survey, "xls") : filenameFor(station, "xls")}"`
       );
       return res.send(recordsToExcelHtml(records, station));
     }
@@ -437,14 +432,8 @@ router.get("/records/export", requireAuth, async (req, res) => {
       const emptyRecords = [];
 
       if (format === "excel") {
-        res.setHeader(
-          "Content-Type",
-          disposition === "inline" ? "text/html; charset=utf-8" : "application/vnd.ms-excel; charset=utf-8"
-        );
-        res.setHeader(
-          "Content-Disposition",
-          `${disposition === "inline" ? "inline" : "attachment"}; filename="${filenameFor(station, "xls")}"`
-        );
+        res.setHeader("Content-Type", "application/vnd.ms-excel; charset=utf-8");
+        res.setHeader("Content-Disposition", `attachment; filename="${filenameFor(station, "xls")}"`);
         return res.send(recordsToExcelHtml(emptyRecords, station));
       }
 
