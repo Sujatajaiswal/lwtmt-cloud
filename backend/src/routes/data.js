@@ -9,13 +9,13 @@ const RECORD_COLUMNS = [
   ["recorded_at", "Date & Time"],
   ["reference_type", "Reference Type"],
   ["reference_point", "Reference Point"],
-  ["latitude", "Latitude"],
+  ["latitude", "Lattitude"],
   ["longitude", "Longitude"],
   ["distance", "Distance"],
   ["gauge", "Gauge"],
-  ["crossover", "Crossover"],
-  ["absolute_tilt", "Absolute Tilt"],
-  ["cumulative_tilt", "Cumulative Tilt"],
+  ["crossover", "Crosslevel"],
+  ["cumulative_tilt", "Twist"],
+  ["chainage", "Chainage"],
 ];
 
 const SURVEY_COLUMNS = [
@@ -160,7 +160,10 @@ function formatDateTime(value) {
   if (!value) return "";
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return String(value);
-  return d.toISOString().replace("T", " ").replace(".000Z", " UTC");
+  const pad = (part) => String(part).padStart(2, "0");
+  return `${pad(d.getUTCDate())}-${pad(d.getUTCMonth() + 1)}-${d.getUTCFullYear()} ${pad(
+    d.getUTCHours()
+  )}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`;
 }
 
 function csvEscape(value) {
