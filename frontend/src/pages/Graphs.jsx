@@ -108,6 +108,7 @@ export default function Graphs() {
   const navigate = useNavigate();
   const [points, setPoints] = useState([]);
   const [days, setDays] = useState([]);
+  const [selectedPoints, setSelectedPoints] = useState({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const hasTimeRange = Boolean(timeRange.start && timeRange.end);
@@ -119,12 +120,14 @@ export default function Graphs() {
       setError("");
       setPoints([]);
       setDays([]);
+      setSelectedPoints({});
       return;
     }
 
     setLoading(true);
     setError("");
     setPoints([]);
+    setSelectedPoints({});
     api
       .graphData(timeRange.start, timeRange.end, station)
       .then((res) => {
@@ -183,7 +186,25 @@ export default function Graphs() {
               </h3>
               <p className="unit">Y-axis: {sensor.axisLabel} | X-axis: Distance</p>
               <ResponsiveContainer width="100%" height={260}>
-                <LineChart data={points} margin={{ top: 10, right: 22, bottom: 32, left: 20 }}>
+                <LineChart
+                  data={points}
+                  margin={{ top: 10, right: 22, bottom: 32, left: 20 }}
+                  onClick={(state) => {
+                    const entry = state?.activePayload?.find(
+                      (item) => item.dataKey?.endsWith(`_${sensor.key}`) && item.value !== undefined
+                    );
+                    if (entry) {
+                      setSelectedPoints((current) => ({
+                        ...current,
+                        [sensor.key]: {
+                          row: entry.payload,
+                          value: entry.value,
+                          day: entry.name,
+                        },
+                      }));
+                    }
+                  }}
+                >
                   <CartesianGrid stroke="var(--line)" strokeDasharray="3 3" />
                   <XAxis
                     dataKey="plot_distance"
@@ -192,18 +213,21 @@ export default function Graphs() {
                     stroke="var(--muted)"
                     fontSize={11}
                     minTickGap={28}
-                    label={{ value: "Distance", position: "insideBottom", offset: -18, fill: "var(--muted)", fontSize: 12 }}
+                    tick={{ fill: "var(--text)", fontWeight: 700 }}
+                    label={{ value: "Distance", position: "insideBottom", offset: -18, fill: "var(--text)", fontSize: 12, fontWeight: 700 }}
                   />
                   <YAxis
                     domain={sensor.key === "gauge" ? ["dataMin - 20", "dataMax + 20"] : ["auto", "auto"]}
                     stroke="var(--muted)"
                     fontSize={11}
+                    tick={{ fill: "var(--text)", fontWeight: 700 }}
                     label={{
                       value: sensor.axisLabel,
                       angle: -90,
                       position: "insideLeft",
-                      fill: "var(--muted)",
+                      fill: "var(--text)",
                       fontSize: 12,
+                      fontWeight: 700,
                       offset: -8,
                     }}
                   />
@@ -224,6 +248,17 @@ export default function Graphs() {
                   ))}
                 </LineChart>
               </ResponsiveContainer>
+              {selectedPoints[sensor.key] && (
+                <div className="selected-point" role="status">
+                  <strong>Selected sample: {selectedPoints[sensor.key].day}</strong>
+                  <span>Date &amp; Time: {formatDateTime(selectedPoints[sensor.key].row.recorded_at)}</span>
+                  <span>{sensor.label}: {selectedPoints[sensor.key].value ?? "-"} {sensor.unit}</span>
+                  <span>Distance: {selectedPoints[sensor.key].row.distance ?? "-"}</span>
+                  <span>Reference Type: {selectedPoints[sensor.key].row.reference_type ?? "-"}</span>
+                  <span>Reference Point: {selectedPoints[sensor.key].row.reference_point ?? "-"}</span>
+                  <span>Sample: {selectedPoints[sensor.key].row.sample_no ?? "-"}</span>
+                </div>
+              )}
             </div>
           ))}
         </div>

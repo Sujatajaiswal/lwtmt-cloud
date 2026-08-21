@@ -666,9 +666,9 @@ a {
   font-family: var(--font-body);
   color: var(--muted);
   font-size: 13px;
+  font-weight: 700;
   margin: 0 0 14px;
 }
-
 .chart-tooltip {
   background: #ffffff;
   border: 1px solid var(--line);
@@ -678,6 +678,22 @@ a {
   font-size: 12px;
   line-height: 1.6;
   padding: 10px 12px;
+}
+
+.selected-point {
+  display: grid;
+  gap: 3px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-left: 3px solid var(--accent);
+  background: #f7f9fb;
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.selected-point strong {
+  margin-bottom: 2px;
 }
 
 .tooltip-time {
