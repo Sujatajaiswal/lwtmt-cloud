@@ -189,21 +189,6 @@ export default function Graphs() {
                 <LineChart
                   data={points}
                   margin={{ top: 10, right: 22, bottom: 32, left: 20 }}
-                  onClick={(state) => {
-                    const entry = state?.activePayload?.find(
-                      (item) => item.dataKey?.endsWith(`_${sensor.key}`) && item.value !== undefined
-                    );
-                    if (entry) {
-                      setSelectedPoints((current) => ({
-                        ...current,
-                        [sensor.key]: {
-                          row: entry.payload,
-                          value: entry.value,
-                          day: entry.name,
-                        },
-                      }));
-                    }
-                  }}
                 >
                   <CartesianGrid stroke="var(--line)" strokeDasharray="3 3" />
                   <XAxis
@@ -240,6 +225,16 @@ export default function Graphs() {
                       dataKey={`${day.key}_${sensor.key}`}
                       name={day.label}
                       stroke={day.color}
+                      onClick={(lineData) => {
+                        const row = lineData?.payload || lineData;
+                        const value = row?.[`${day.key}_${sensor.key}`];
+                        if (row?.recorded_at && value !== undefined) {
+                          setSelectedPoints((current) => ({
+                            ...current,
+                            [sensor.key]: { row, value, day: day.label },
+                          }));
+                        }
+                      }}
                       dot={points.length <= 250 ? { r: 2 } : false}
                       activeDot={{ r: 4 }}
                       strokeWidth={2}
