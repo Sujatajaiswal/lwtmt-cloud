@@ -7,8 +7,7 @@ import { api } from "../api";
 
 const SENSORS = [
   { key: "gauge", label: "Gauge", unit: "mm", axisLabel: "Gauge (mm)", color: "#2563eb" },
-  { key: "crossover", label: "Crossover", unit: "mm", axisLabel: "Crossover (mm)", color: "#15945f" },
-  { key: "chainage", label: "Chainage", unit: "m", axisLabel: "Chainage", color: "#b7791f" },
+  { key: "crossover", label: "Crosslevel", unit: "mm", axisLabel: "Crosslevel (mm)", color: "#15945f" },
   { key: "cumulative_tilt", label: "Twist", unit: "mm", axisLabel: "Twist (mm)", color: "#c24134" },
 ];
 
@@ -44,7 +43,6 @@ function SensorTooltip({ active, payload }) {
       <div>Distance: {row.distance ?? "-"}</div>
       <div>Reference Type: {row.reference_type ?? "-"}</div>
       <div>Reference Point: {row.reference_point ?? "-"}</div>
-      <div>Chainage: {row.chainage ?? "-"}</div>
       <div>Sample: {row.sample_no ?? "-"}</div>
     </div>
   );
@@ -81,7 +79,7 @@ export default function Graphs() {
     <div className="panel full-panel">
       <StepRail currentIndex={2} />
       <h1>Sensor Graphs</h1>
-      <p className="subtitle">Gauge, Crossover, Chainage, and Twist plotted against distance with date and time available at each sample.</p>
+      <p className="subtitle">Gauge, Crosslevel, and Twist plotted against distance with date and time available at each sample.</p>
 
       <div className="filter-summary">
         <span>
