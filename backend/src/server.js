@@ -96,7 +96,7 @@ async function seedDemoSurveyIfEnabled() {
     return;
   }
 
-  if (demoCount >= days * rowCount && demoDays >= days && gaugeSpread >= (days - 1) * 8) {
+  if (demoCount >= days * rowCount && demoDays >= days && gaugeSpread >= (days - 1) * 20) {
     console.log(`Demo station ${stationCode} already has ${demoDays} daily records; skipping demo seed.`);
     return;
   }
@@ -156,7 +156,7 @@ async function seedDemoSurveyIfEnabled() {
           13.0827 + i * 0.00001,
           80.2707 + i * 0.00001,
           Number((i * 2.5).toFixed(2)),
-          demoReading(1660 + dayIndex * 12, sampleSeed, 2.8),
+          demoReading(1600 + dayIndex * 25, sampleSeed, 2.8),
           crossLevel,
           crossLevel,
           twist,

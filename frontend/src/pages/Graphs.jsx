@@ -195,6 +195,7 @@ export default function Graphs() {
                     label={{ value: "Distance", position: "insideBottom", offset: -18, fill: "var(--muted)", fontSize: 12 }}
                   />
                   <YAxis
+                    domain={sensor.key === "gauge" ? ["dataMin - 20", "dataMax + 20"] : ["auto", "auto"]}
                     stroke="var(--muted)"
                     fontSize={11}
                     label={{
