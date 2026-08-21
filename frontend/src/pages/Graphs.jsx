@@ -133,6 +133,14 @@ export default function Graphs() {
   const hasTimeRange = Boolean(timeRange.start && timeRange.end);
   const canLoadGraph = Boolean(hasTimeRange && station);
 
+  function selectPoint(sensorKey, day, row, value) {
+    if (!row?.recorded_at || value === undefined) return;
+    setSelectedPoints((current) => ({
+      ...current,
+      [sensorKey]: { row, value, day: day.label },
+    }));
+  }
+
   useEffect(() => {
     if (!canLoadGraph) {
       setLoading(false);
@@ -271,15 +279,29 @@ export default function Graphs() {
                       onClick={(lineData) => {
                         const row = lineData?.payload || lineData;
                         const value = row?.[`${day.key}_${sensor.key}`];
-                        if (row?.recorded_at && value !== undefined) {
-                          setSelectedPoints((current) => ({
-                            ...current,
-                            [sensor.key]: { row, value, day: day.label },
-                          }));
-                        }
+                        selectPoint(sensor.key, day, row, value);
                       }}
-                      dot={points.length <= 250 ? { r: 2 } : false}
-                      activeDot={{ r: 4 }}
+                      dot={(dotProps) => {
+                        const row = dotProps.payload;
+                        const value = row?.[`${day.key}_${sensor.key}`];
+                        if (!row?.recorded_at || value === undefined) return null;
+                        return (
+                          <circle
+                            cx={dotProps.cx}
+                            cy={dotProps.cy}
+                            r={points.length <= 250 ? 3 : 2.5}
+                            fill={day.color}
+                            stroke="#ffffff"
+                            strokeWidth={1}
+                            style={{ cursor: "pointer" }}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              selectPoint(sensor.key, day, row, value);
+                            }}
+                          />
+                        );
+                      }}
+                      activeDot={{ r: 5 }}
                       strokeWidth={2}
                       connectNulls={false}
                     />
