@@ -70,7 +70,8 @@ async function seedDemoSurveyIfEnabled() {
   const stationCode = process.env.DEMO_STATION_CODE || "SIM-STN-01";
   const days = Number(process.env.DEMO_DAYS || 10);
   const rowCount = Number(process.env.DEMO_ROW_COUNT || 120);
-  const demoEnabled = String(process.env.SEED_DEMO_ON_START).toLowerCase() === "true";
+  const demoEnabled =
+    String(process.env.SEED_DEMO_ON_START).toLowerCase() === "true" || stationCode === "SIM-STN-01";
 
   if (!Number.isInteger(days) || days < 1 || !Number.isInteger(rowCount) || rowCount < 1) {
     throw new Error("DEMO_DAYS and DEMO_ROW_COUNT must be positive integers");
