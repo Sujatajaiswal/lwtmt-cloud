@@ -1,14 +1,29 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import StepRail from "../components/StepRail";
 import { useFilters } from "../context/FilterContext";
 import { api } from "../api";
 
 const SENSORS = [
-  { key: "gauge", label: "Gauge", unit: "mm", axisLabel: "Gauge (mm)", color: "#2563eb" },
+  { key: "gauge", label: "Track Gauge", unit: "mm", axisLabel: "Track Gauge (mm)", color: "#2563eb" },
   { key: "crossover", label: "Crosslevel", unit: "mm", axisLabel: "Crosslevel (mm)", color: "#15945f" },
   { key: "cumulative_tilt", label: "Twist", unit: "mm", axisLabel: "Twist (mm)", color: "#c24134" },
+];
+
+const DAY_COLORS = [
+  "#2563eb",
+  "#15945f",
+  "#c24134",
+  "#b7791f",
+  "#7c3aed",
+  "#0891b2",
+  "#be185d",
+  "#4d7c0f",
+  "#9333ea",
+  "#0f766e",
+  "#ea580c",
+  "#475569",
 ];
 
 function formatDateTime(value) {
@@ -23,23 +38,63 @@ function formatDateTime(value) {
   });
 }
 
-function toChartPoints(records) {
-  return records
+function dateKey(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "unknown";
+  const pad = (part) => String(part).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+function dateLabel(key) {
+  if (key === "unknown") return "Unknown date";
+  return new Date(`${key}T00:00:00`).toLocaleDateString([], {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+  });
+}
+
+function toChartData(records) {
+  const prepared = records
     .map((record) => ({
       ...record,
       plot_distance: Number.isFinite(Number(record.distance)) ? Number(record.distance) : Number(record.chainage),
+      day_key: dateKey(record.recorded_at),
     }))
     .filter((record) => Number.isFinite(record.plot_distance));
+
+  const days = [];
+  const dayKeys = new Set();
+  prepared.forEach((record) => {
+    if (!dayKeys.has(record.day_key)) {
+      dayKeys.add(record.day_key);
+      days.push({
+        key: record.day_key,
+        label: dateLabel(record.day_key),
+        color: DAY_COLORS[days.length % DAY_COLORS.length],
+      });
+    }
+  });
+
+  const chartPoints = prepared.map((record) => ({
+    ...record,
+    ...Object.fromEntries(
+      SENSORS.map((sensor) => [`${record.day_key}_${sensor.key}`, record[sensor.key]])
+    ),
+  }));
+
+  return { points: chartPoints, days };
 }
 
 function SensorTooltip({ active, payload }) {
   if (!active || !payload?.length) return null;
   const row = payload[0].payload;
+  const values = payload.filter((entry) => entry.value !== null && entry.value !== undefined && entry.value !== "");
 
   return (
     <div className="chart-tooltip">
       <div className="tooltip-time">{formatDateTime(row.recorded_at)}</div>
-      <div>{payload[0].name}: {payload[0].value}</div>
+      {values.map((entry) => <div key={entry.dataKey}>{entry.name}: {entry.value}</div>)}
       <div>Distance: {row.distance ?? "-"}</div>
       <div>Reference Type: {row.reference_type ?? "-"}</div>
       <div>Reference Point: {row.reference_point ?? "-"}</div>
@@ -52,6 +107,7 @@ export default function Graphs() {
   const { timeRange, station } = useFilters();
   const navigate = useNavigate();
   const [points, setPoints] = useState([]);
+  const [days, setDays] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const hasTimeRange = Boolean(timeRange.start && timeRange.end);
@@ -62,6 +118,7 @@ export default function Graphs() {
       setLoading(false);
       setError("");
       setPoints([]);
+      setDays([]);
       return;
     }
 
@@ -70,7 +127,11 @@ export default function Graphs() {
     setPoints([]);
     api
       .graphData(timeRange.start, timeRange.end, station)
-      .then((res) => setPoints(toChartPoints(res.points || [])))
+      .then((res) => {
+        const chartData = toChartData(res.points || []);
+        setPoints(chartData.points);
+        setDays(chartData.days);
+      })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [timeRange, station, canLoadGraph]);
@@ -79,7 +140,7 @@ export default function Graphs() {
     <div className="panel full-panel">
       <StepRail currentIndex={2} />
       <h1>Sensor Graphs</h1>
-      <p className="subtitle">Gauge, Crosslevel, and Twist plotted against distance with date and time available at each sample.</p>
+      <p className="subtitle">Track Gauge, Crosslevel, and Twist plotted against distance. Each day with data has its own colored line.</p>
 
       <div className="filter-summary">
         <span>
@@ -146,16 +207,20 @@ export default function Graphs() {
                     }}
                   />
                   <Tooltip content={<SensorTooltip />} />
-                  <Line
-                    type="monotone"
-                    dataKey={sensor.key}
-                    name={`${sensor.label} (${sensor.unit})`}
-                    stroke={sensor.color}
-                    dot={points.length <= 250 ? { r: 2 } : false}
-                    activeDot={{ r: 4 }}
-                    strokeWidth={2}
-                    connectNulls
-                  />
+                  <Legend />
+                  {days.map((day) => (
+                    <Line
+                      key={`${sensor.key}-${day.key}`}
+                      type="monotone"
+                      dataKey={`${day.key}_${sensor.key}`}
+                      name={day.label}
+                      stroke={day.color}
+                      dot={points.length <= 250 ? { r: 2 } : false}
+                      activeDot={{ r: 4 }}
+                      strokeWidth={2}
+                      connectNulls={false}
+                    />
+                  ))}
                 </LineChart>
               </ResponsiveContainer>
             </div>

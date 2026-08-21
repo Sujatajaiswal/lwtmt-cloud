@@ -55,6 +55,17 @@ npm run init-db
 npm run seed-admin
 ```
 
+To create ten days of simulated data for testing the daily graph lines, run:
+
+```powershell
+npm run seed-demo
+```
+
+This creates ten daily surveys for `SIM-STN-01`, with 120 samples per day. Use
+the printed start and end timestamps in the dashboard, then select
+`SIM-STN-01`. You can override the defaults with
+`npm run seed-demo -- STATION_CODE DAYS ROWS_PER_DAY`.
+
 Start the backend:
 
 ```powershell
