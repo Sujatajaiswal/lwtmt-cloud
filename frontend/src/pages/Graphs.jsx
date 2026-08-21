@@ -103,6 +103,25 @@ function SensorTooltip({ active, payload }) {
   );
 }
 
+function ClickableLegend({ payload = [], onSelect }) {
+  return (
+    <div className="clickable-legend">
+      {payload.map((entry) => (
+        <button
+          type="button"
+          className="legend-date-btn"
+          key={entry.dataKey}
+          onClick={() => onSelect(entry.dataKey)}
+          title={`View ${entry.value} details`}
+        >
+          <span className="legend-line" style={{ background: entry.color }} />
+          {entry.value}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export default function Graphs() {
   const { timeRange, station } = useFilters();
   const navigate = useNavigate();
@@ -185,10 +204,10 @@ export default function Graphs() {
                 {sensor.label}
               </h3>
               <p className="unit">Y-axis: {sensor.axisLabel} | X-axis: Distance</p>
-              <ResponsiveContainer width="100%" height={260}>
+              <ResponsiveContainer width="100%" height={320}>
                 <LineChart
                   data={points}
-                  margin={{ top: 10, right: 22, bottom: 32, left: 20 }}
+                  margin={{ top: 10, right: 22, bottom: 12, left: 20 }}
                 >
                   <CartesianGrid stroke="var(--line)" strokeDasharray="3 3" />
                   <XAxis
@@ -217,7 +236,31 @@ export default function Graphs() {
                     }}
                   />
                   <Tooltip content={<SensorTooltip />} />
-                  <Legend />
+                  <Legend
+                    verticalAlign="bottom"
+                    height={58}
+                    content={(legendProps) => (
+                      <ClickableLegend
+                        {...legendProps}
+                        onSelect={(dataKey) => {
+                          const day = days.find((item) => dataKey === `${item.key}_${sensor.key}`);
+                          const row = day && points.find(
+                            (item) => item.day_key === day.key && item[`${day.key}_${sensor.key}`] !== undefined
+                          );
+                          if (day && row) {
+                            setSelectedPoints((current) => ({
+                              ...current,
+                              [sensor.key]: {
+                                row,
+                                value: row[`${day.key}_${sensor.key}`],
+                                day: day.label,
+                              },
+                            }));
+                          }
+                        }}
+                      />
+                    )}
+                  />
                   {days.map((day) => (
                     <Line
                       key={`${sensor.key}-${day.key}`}

@@ -696,6 +696,39 @@ a {
   margin-bottom: 2px;
 }
 
+.clickable-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 12px;
+  padding: 4px 0;
+}
+
+.legend-date-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.legend-date-btn:hover,
+.legend-date-btn:focus-visible {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.legend-line {
+  width: 14px;
+  height: 3px;
+  border-radius: 2px;
+}
+
 .tooltip-time {
   color: var(--muted);
   font-weight: 800;
