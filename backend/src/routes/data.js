@@ -390,6 +390,47 @@ router.get("/records", requireAuth, async (req, res) => {
   }
 });
 
+// GET /api/records/view?surveyId=...
+// Returns one uploaded CSV as JSON for the in-app viewer.
+router.get("/records/view", requireAuth, async (req, res) => {
+  const { surveyId } = req.query;
+
+  if (!surveyId) {
+    return res.status(400).json({ error: "surveyId is required" });
+  }
+
+  try {
+    const records = await loadRecords({ surveyId });
+    const survey = (
+      await pool.query(
+        "SELECT id AS survey_id, filename, station_code FROM surveys WHERE id = $1",
+        [surveyId]
+      )
+    ).rows[0];
+
+    if (!survey) {
+      return res.status(404).json({ error: "Survey not found" });
+    }
+
+    res.json({
+      survey: {
+        survey_id: survey.survey_id,
+        filename: survey.filename,
+        station_no: survey.station_code || "",
+      },
+      columns: RECORD_COLUMNS.map(([key, label]) => ({ key, label })),
+      records,
+    });
+  } catch (err) {
+    if (isMissingTable(err)) {
+      return res.status(404).json({ error: "Survey records are not available" });
+    }
+
+    console.error("Survey view query error:", err);
+    res.status(500).json({ error: "Failed to load survey records" });
+  }
+});
+
 // GET /api/records/export?format=csv|excel|pdf&start=...&end=...&station=...&surveyId=...
 router.get("/records/export", requireAuth, async (req, res) => {
   const { start, end, station, surveyId, disposition = "attachment", format = "csv" } = req.query;

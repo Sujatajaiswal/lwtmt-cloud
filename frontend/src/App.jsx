@@ -8,6 +8,7 @@ import TimeRange from "./pages/TimeRange";
 import StationSelect from "./pages/StationSelect";
 import Graphs from "./pages/Graphs";
 import DataRecords from "./pages/DataRecords";
+import CsvViewer from "./pages/CsvViewer";
 
 function AuthedLayout({ children }) {
   return (
@@ -56,6 +57,14 @@ export default function App() {
               element={
                 <AuthedLayout>
                   <DataRecords />
+                </AuthedLayout>
+              }
+            />
+            <Route
+              path="/records/:surveyId"
+              element={
+                <AuthedLayout>
+                  <CsvViewer />
                 </AuthedLayout>
               }
             />

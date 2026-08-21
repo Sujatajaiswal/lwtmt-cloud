@@ -76,6 +76,10 @@ export const api = {
     if (station) params.set("station", station);
     return request(`/records?${params.toString()}`);
   },
+  recordView: (surveyId) => {
+    const params = new URLSearchParams({ surveyId });
+    return request(`/records/view?${params.toString()}`);
+  },
   recordsExportUrl: (start, end, station, format) => {
     const params = new URLSearchParams({ format });
     if (start) params.set("start", start);

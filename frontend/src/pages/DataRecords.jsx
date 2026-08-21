@@ -111,9 +111,13 @@ export default function DataRecords() {
                     if (column.key === "view_csv") {
                       return (
                         <td key={column.key}>
-                          <a className="table-action-btn" href={record.view_csv_url} target="_blank" rel="noreferrer">
+                          <button
+                            type="button"
+                            className="table-action-btn"
+                            onClick={() => navigate(`/records/${record.survey_id}`)}
+                          >
                             View
-                          </a>
+                          </button>
                         </td>
                       );
                     }
