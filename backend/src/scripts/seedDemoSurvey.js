@@ -73,7 +73,7 @@ async function main() {
           13.0827 + i * 0.00001,
           80.2707 + i * 0.00001,
           Number((i * 2.5).toFixed(2)),
-          reading(1676, sampleSeed, 2.8),
+          reading(1660 + dayIndex * 12, sampleSeed, 2.8),
           crossLevel,
           crossLevel,
           twist,

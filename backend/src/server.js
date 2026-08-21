@@ -81,21 +81,22 @@ async function seedDemoSurveyIfEnabled() {
     `SELECT
        (SELECT COUNT(*)::int FROM survey_records) AS total_count,
        COUNT(*)::int AS demo_count,
-       COUNT(DISTINCT recorded_at::date)::int AS demo_days
+      COUNT(DISTINCT recorded_at::date)::int AS demo_days,
+      COALESCE(MAX(sr.gauge) - MIN(sr.gauge), 0)::float AS gauge_spread
      FROM survey_records sr
      JOIN surveys s ON s.id = sr.survey_id
      WHERE s.station_code = $1`,
     [stationCode]
   );
 
-  const { total_count: totalCount, demo_count: demoCount, demo_days: demoDays } = summary.rows[0];
+  const { total_count: totalCount, demo_count: demoCount, demo_days: demoDays, gauge_spread: gaugeSpread } = summary.rows[0];
 
   if (!demoEnabled && totalCount > 0) {
     console.log("Survey records already exist; skipping automatic demo seed.");
     return;
   }
 
-  if (demoCount >= days * rowCount && demoDays >= days) {
+  if (demoCount >= days * rowCount && demoDays >= days && gaugeSpread >= (days - 1) * 8) {
     console.log(`Demo station ${stationCode} already has ${demoDays} daily records; skipping demo seed.`);
     return;
   }
@@ -155,7 +156,7 @@ async function seedDemoSurveyIfEnabled() {
           13.0827 + i * 0.00001,
           80.2707 + i * 0.00001,
           Number((i * 2.5).toFixed(2)),
-          demoReading(1676, sampleSeed, 2.8),
+          demoReading(1660 + dayIndex * 12, sampleSeed, 2.8),
           crossLevel,
           crossLevel,
           twist,
