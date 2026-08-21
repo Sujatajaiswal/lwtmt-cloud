@@ -68,53 +68,47 @@ function demoReading(base, sampleNo, scale = 1) {
 
 async function seedDemoSurveyIfEnabled() {
   const stationCode = process.env.DEMO_STATION_CODE || "SIM-STN-01";
+  const days = Number(process.env.DEMO_DAYS || 10);
   const rowCount = Number(process.env.DEMO_ROW_COUNT || 120);
   const demoEnabled = String(process.env.SEED_DEMO_ON_START).toLowerCase() === "true";
+
+  if (!Number.isInteger(days) || days < 1 || !Number.isInteger(rowCount) || rowCount < 1) {
+    throw new Error("DEMO_DAYS and DEMO_ROW_COUNT must be positive integers");
+  }
+
   const summary = await pool.query(
     `SELECT
-       COUNT(*)::int AS total_count,
-       COUNT(*) FILTER (
-         WHERE station_code = $1 OR survey_id IN (SELECT id FROM surveys WHERE station_code = $1)
-       )::int AS demo_count,
-       MAX(recorded_at) FILTER (
-         WHERE station_code = $1 OR survey_id IN (SELECT id FROM surveys WHERE station_code = $1)
-       ) AS latest_demo_at
-     FROM survey_records`,
+       (SELECT COUNT(*)::int FROM survey_records) AS total_count,
+       COUNT(*)::int AS demo_count,
+       COUNT(DISTINCT recorded_at::date)::int AS demo_days
+     FROM survey_records sr
+     JOIN surveys s ON s.id = sr.survey_id
+     WHERE s.station_code = $1`,
     [stationCode]
   );
 
-  const { total_count: totalCount, demo_count: demoCount, latest_demo_at: latestDemoAt } = summary.rows[0];
-  const latestDemoTime = latestDemoAt ? new Date(latestDemoAt).getTime() : 0;
-  const demoIsFresh = latestDemoTime > Date.now() - 24 * 60 * 60 * 1000;
+  const { total_count: totalCount, demo_count: demoCount, demo_days: demoDays } = summary.rows[0];
 
   if (!demoEnabled && totalCount > 0) {
     console.log("Survey records already exist; skipping automatic demo seed.");
     return;
   }
 
-  if (demoCount > 0 && demoIsFresh) {
-    console.log(`Demo station ${stationCode} already has fresh records; skipping demo seed.`);
+  if (demoCount >= days * rowCount && demoDays >= days) {
+    console.log(`Demo station ${stationCode} already has ${demoDays} daily records; skipping demo seed.`);
     return;
   }
 
-  if (demoCount > 0) {
-    console.log(`Demo station ${stationCode} exists but is stale; adding fresh demo rows.`);
-  }
-
-  const now = new Date();
-  const start = new Date(now.getTime() - 2 * 60 * 60 * 1000);
+  const lastDay = new Date();
+  lastDay.setUTCHours(9, 0, 0, 0);
+  const firstDay = new Date(lastDay);
+  firstDay.setUTCDate(firstDay.getUTCDate() - (days - 1));
   const client = await pool.connect();
 
   try {
     await client.query("BEGIN");
 
-    const surveyResult = await client.query(
-      `INSERT INTO surveys (filename, station_code, surveyor_name, designation, row_count)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING id`,
-      [`demo_${stationCode}_${Date.now()}.csv`, stationCode, "Demo Operator", "Simulation", rowCount]
-    );
-    const surveyId = surveyResult.rows[0].id;
+    await client.query("DELETE FROM surveys WHERE station_code = $1 AND designation = 'Simulation'", [stationCode]);
 
     const insertText = `
       INSERT INTO survey_records (
@@ -126,37 +120,50 @@ async function seedDemoSurveyIfEnabled() {
         $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19
       )`;
 
-    for (let i = 1; i <= rowCount; i += 1) {
-      const recordedAt = new Date(start.getTime() + i * 60 * 1000);
-      const chainage = Number((1000 + i * 2.5).toFixed(2));
-      const crossLevel = demoReading(0, i, 1.4);
-      const twist = demoReading(0, i, 0.5);
+    for (let dayIndex = 0; dayIndex < days; dayIndex += 1) {
+      const dayStart = new Date(firstDay.getTime() + dayIndex * 24 * 60 * 60 * 1000);
+      const dayLabel = dayStart.toISOString().slice(0, 10);
+      const surveyResult = await client.query(
+        `INSERT INTO surveys (filename, station_code, surveyor_name, designation, row_count)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING id`,
+        [`demo_${stationCode}_${dayLabel}.csv`, stationCode, "Demo Operator", "Simulation", rowCount]
+      );
+      const surveyId = surveyResult.rows[0].id;
 
-      await client.query(insertText, [
-        surveyId,
-        i,
-        recordedAt.toISOString(),
-        "Demo",
-        `RP-${String(i).padStart(3, "0")}`,
-        stationCode,
-        chainage,
-        "Main",
-        null,
-        null,
-        null,
-        null,
-        13.0827 + i * 0.00001,
-        80.2707 + i * 0.00001,
-        Number((i * 2.5).toFixed(2)),
-        demoReading(1676, i, 2.8),
-        crossLevel,
-        crossLevel,
-        twist,
-      ]);
+      for (let i = 1; i <= rowCount; i += 1) {
+        const recordedAt = new Date(dayStart.getTime() + i * 60 * 1000);
+        const sampleSeed = dayIndex * rowCount + i;
+        const chainage = Number((1000 + i * 2.5).toFixed(2));
+        const crossLevel = demoReading(0, sampleSeed, 1.4);
+        const twist = demoReading(0, sampleSeed, 0.5);
+
+        await client.query(insertText, [
+          surveyId,
+          i,
+          recordedAt.toISOString(),
+          "Demo",
+          `RP-${String(i).padStart(3, "0")}`,
+          stationCode,
+          chainage,
+          "Main",
+          null,
+          null,
+          null,
+          null,
+          13.0827 + i * 0.00001,
+          80.2707 + i * 0.00001,
+          Number((i * 2.5).toFixed(2)),
+          demoReading(1676, sampleSeed, 2.8),
+          crossLevel,
+          crossLevel,
+          twist,
+        ]);
+      }
     }
 
     await client.query("COMMIT");
-    console.log(`Seeded ${rowCount} demo rows for station ${stationCode}.`);
+    console.log(`Seeded ${days} demo surveys (${days * rowCount} rows) for station ${stationCode}.`);
   } catch (err) {
     await client.query("ROLLBACK");
     throw err;
