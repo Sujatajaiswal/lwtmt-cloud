@@ -204,10 +204,10 @@ export default function Graphs() {
                 {sensor.label}
               </h3>
               <p className="unit">Y-axis: {sensor.axisLabel} | X-axis: Distance</p>
-              <ResponsiveContainer width="100%" height={320}>
+              <ResponsiveContainer width="100%" height={340}>
                 <LineChart
                   data={points}
-                  margin={{ top: 10, right: 22, bottom: 12, left: 20 }}
+                  margin={{ top: 10, right: 22, bottom: 24, left: 20 }}
                 >
                   <CartesianGrid stroke="var(--line)" strokeDasharray="3 3" />
                   <XAxis
@@ -218,7 +218,7 @@ export default function Graphs() {
                     fontSize={11}
                     minTickGap={28}
                     tick={{ fill: "var(--text)", fontWeight: 700 }}
-                    label={{ value: "Distance", position: "insideBottom", offset: -18, fill: "var(--text)", fontSize: 12, fontWeight: 700 }}
+                    label={{ value: "Distance", position: "insideBottom", offset: -8, fill: "var(--text)", fontSize: 12, fontWeight: 700 }}
                   />
                   <YAxis
                     domain={sensor.key === "gauge" ? ["dataMin - 20", "dataMax + 20"] : ["auto", "auto"]}
@@ -238,7 +238,7 @@ export default function Graphs() {
                   <Tooltip content={<SensorTooltip />} />
                   <Legend
                     verticalAlign="bottom"
-                    height={58}
+                    height={72}
                     content={(legendProps) => (
                       <ClickableLegend
                         {...legendProps}
