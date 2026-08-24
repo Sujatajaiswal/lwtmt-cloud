@@ -141,6 +141,13 @@ export default function Graphs() {
     }));
   }
 
+  function selectLine(sensorKey, day, lineData) {
+    const dataKey = `${day.key}_${sensorKey}`;
+    const activePoint = lineData?.activePayload?.find((entry) => entry.dataKey === dataKey)?.payload;
+    const row = activePoint || lineData?.payload;
+    selectPoint(sensorKey, day, row, row?.[dataKey]);
+  }
+
   useEffect(() => {
     if (!canLoadGraph) {
       setLoading(false);
@@ -277,10 +284,9 @@ export default function Graphs() {
                       name={day.label}
                       stroke={day.color}
                       onClick={(lineData) => {
-                        const row = lineData?.payload || lineData;
-                        const value = row?.[`${day.key}_${sensor.key}`];
-                        selectPoint(sensor.key, day, row, value);
+                        selectLine(sensor.key, day, lineData);
                       }}
+                      style={{ cursor: "pointer" }}
                       dot={(dotProps) => {
                         const row = dotProps.payload;
                         const value = row?.[`${day.key}_${sensor.key}`];
