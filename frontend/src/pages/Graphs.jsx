@@ -8,7 +8,7 @@ import { api } from "../api";
 const SENSORS = [
   { key: "gauge", label: "Track Gauge", unit: "mm", axisLabel: "Track Gauge (mm)", color: "#2563eb" },
   { key: "crossover", label: "Crosslevel", unit: "mm", axisLabel: "Crosslevel (mm)", color: "#15945f" },
-  { key: "cumulative_tilt", label: "Twist", unit: "mm", axisLabel: "Twist (mm)", color: "#c24134" },
+  { key: "twist", label: "Twist", unit: "mm", axisLabel: "Twist (mm)", color: "#c24134" },
 ];
 
 const DAY_COLORS = [

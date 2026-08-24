@@ -34,9 +34,9 @@ async function main() {
         survey_id, sample_no, recorded_at, reference_type, reference_point,
         station_code, chainage, loop_line_siding, turnout_no, curve_no,
         level_crossing_no, hectometer_post, latitude, longitude, distance,
-        gauge, crossover, absolute_tilt, cumulative_tilt
+        gauge, crossover, twist
       ) VALUES (
-        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19
+        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18
       )`;
 
     for (let dayIndex = 0; dayIndex < days; dayIndex += 1) {
@@ -74,7 +74,6 @@ async function main() {
           80.2707 + i * 0.00001,
           Number((i * 2.5).toFixed(2)),
           reading(1600 + dayIndex * 25, sampleSeed, 2.8),
-          crossLevel,
           crossLevel,
           twist,
         ]);

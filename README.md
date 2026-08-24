@@ -6,8 +6,8 @@ Separate frontend/backend rebuild of the LWTMT cloud dashboard.
 - `backend/` — Node/Express API
 - Database — PostgreSQL (works locally, or Render's managed Postgres)
 
-Pages: **Login → Time Range → Station No → Graphs** (Gauge, Crossover, Absolute Tilt,
-Cumulative Tilt, each plotted against chainage).
+Pages: **Login → Time Range → Station No → Graphs** (Gauge, Crosslevel, and Twist,
+each plotted against chainage).
 
 The ingest endpoint the BeagleBone already posts to — `POST /api/survey` with
 `{ filename, data: [...] }` — is unchanged, so `push_latest_csv.sh` /

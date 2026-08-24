@@ -42,9 +42,30 @@ CREATE TABLE IF NOT EXISTS survey_records (
     distance          DOUBLE PRECISION,
     gauge             DOUBLE PRECISION,   -- sensor 1
     crossover         DOUBLE PRECISION,   -- sensor 2
-    absolute_tilt     DOUBLE PRECISION,   -- sensor 3
-    cumulative_tilt   DOUBLE PRECISION    -- sensor 4
+    twist             DOUBLE PRECISION    -- sensor 3
 );
+
+-- Keep existing localhost and Render databases compatible with the current schema.
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'survey_records' AND column_name = 'cumulative_tilt'
+    ) THEN
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'survey_records' AND column_name = 'twist'
+        ) THEN
+            ALTER TABLE survey_records RENAME COLUMN cumulative_tilt TO twist;
+        ELSE
+            UPDATE survey_records
+            SET twist = COALESCE(twist, cumulative_tilt);
+            ALTER TABLE survey_records DROP COLUMN cumulative_tilt;
+        END IF;
+    END IF;
+END $$;
+
+ALTER TABLE survey_records DROP COLUMN IF EXISTS absolute_tilt;
 
 CREATE INDEX IF NOT EXISTS idx_records_survey ON survey_records (survey_id);
 CREATE INDEX IF NOT EXISTS idx_records_station ON survey_records (station_code);

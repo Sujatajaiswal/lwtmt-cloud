@@ -82,9 +82,9 @@ router.post("/survey", async (req, res) => {
         survey_id, sample_no, recorded_at, reference_type, reference_point,
         station_code, chainage, loop_line_siding, turnout_no, curve_no,
         level_crossing_no, hectometer_post, latitude, longitude, distance,
-        gauge, crossover, absolute_tilt, cumulative_tilt
+        gauge, crossover, twist
       ) VALUES (
-        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19
+        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18
       )`;
 
     for (const row of data) {
@@ -106,7 +106,6 @@ router.post("/survey", async (req, res) => {
         toNumber(firstValue(row, ["Distance", "Distance (m)"])),
         toNumber(firstValue(row, ["Gauge", "Gauge (mm)"])),
         toNumber(firstValue(row, ["Crossover", "Cross Level", "Crosslevel"])),
-        toNumber(firstValue(row, ["Absolute Tilt", "Abs Tilt"])),
         toNumber(firstValue(row, ["Twist", "Cumulative Tilt", "Cum Tilt"])),
       ]);
     }

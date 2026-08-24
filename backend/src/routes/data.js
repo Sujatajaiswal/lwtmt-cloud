@@ -14,7 +14,7 @@ const RECORD_COLUMNS = [
   ["distance", "Distance"],
   ["gauge", "Gauge"],
   ["crossover", "Crosslevel"],
-  ["cumulative_tilt", "Twist"],
+  ["twist", "Twist"],
   ["chainage", "Chainage"],
 ];
 
@@ -108,7 +108,7 @@ async function loadRecords(filters) {
       COALESCE(sr.station_code, s.station_code) AS station_code,
       sr.chainage, sr.loop_line_siding, sr.turnout_no, sr.curve_no,
       sr.level_crossing_no, sr.hectometer_post, sr.latitude, sr.longitude, sr.distance,
-      sr.gauge, sr.crossover, sr.absolute_tilt, sr.cumulative_tilt
+      sr.gauge, sr.crossover, sr.twist
     FROM survey_records sr
     JOIN surveys s ON s.id = sr.survey_id
     ${where.text}
@@ -330,7 +330,7 @@ router.get("/stations", requireAuth, async (req, res) => {
 });
 
 // GET /api/graph-data?start=...&end=...&station=...
-// Returns the 4 sensor series (Gauge, Crossover, Absolute Tilt, Cumulative Tilt)
+// Returns the 3 sensor series (Gauge, Crosslevel, Twist)
 // with distance and date/time for graph plotting.
 router.get("/graph-data", requireAuth, async (req, res) => {
   const { start, end, station } = req.query;
