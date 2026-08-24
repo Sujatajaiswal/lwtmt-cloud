@@ -9,13 +9,19 @@ const RECORD_COLUMNS = [
   ["recorded_at", "Date & Time"],
   ["reference_type", "Reference Type"],
   ["reference_point", "Reference Point"],
+  ["station_code", "Station Code"],
+  ["chainage", "Chainage"],
+  ["loop_line_siding", "Loop/Line Siding"],
+  ["turnout_no", "Turnout No"],
+  ["curve_no", "Curve No"],
+  ["level_crossing_no", "Level Crossing No"],
+  ["hectometer_post", "Hectometer Post"],
   ["latitude", "Lattitude"],
   ["longitude", "Longitude"],
   ["distance", "Distance"],
   ["gauge", "Gauge"],
   ["crossover", "Crosslevel"],
   ["twist", "Twist"],
-  ["chainage", "Chainage"],
 ];
 
 const SURVEY_COLUMNS = [
