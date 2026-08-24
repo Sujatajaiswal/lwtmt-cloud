@@ -86,26 +86,6 @@ function toChartData(records) {
   return { points: chartPoints, days };
 }
 
-function SensorTooltip({ active, payload, hoveredDataKey }) {
-  if (!active || !payload?.length) return null;
-  const entry = payload.find((item) => item.dataKey === hoveredDataKey) || payload[0];
-  const row = entry.payload;
-  const values = entry.value !== null && entry.value !== undefined && entry.value !== ""
-    ? [entry]
-    : [];
-
-  return (
-    <div className="chart-tooltip">
-      <div className="tooltip-time">{formatDateTime(row.recorded_at)}</div>
-      {values.map((entry) => <div key={entry.dataKey}>{entry.name}: {entry.value}</div>)}
-      <div>Distance: {row.distance ?? "-"}</div>
-      <div>Reference Type: {row.reference_type ?? "-"}</div>
-      <div>Reference Point: {row.reference_point ?? "-"}</div>
-      <div>Sample: {row.sample_no ?? "-"}</div>
-    </div>
-  );
-}
-
 function ClickableLegend({ payload = [], onSelect }) {
   return (
     <div className="clickable-legend">
@@ -131,7 +111,6 @@ export default function Graphs() {
   const [points, setPoints] = useState([]);
   const [days, setDays] = useState([]);
   const [selectedPoints, setSelectedPoints] = useState({});
-  const [hoveredSeries, setHoveredSeries] = useState({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const hasTimeRange = Boolean(timeRange.start && timeRange.end);
@@ -152,14 +131,6 @@ export default function Graphs() {
     selectPoint(sensorKey, day, row, row?.[dataKey]);
   }
 
-  function selectHoveredPoint(sensorKey, chartState) {
-    const dataKey = hoveredSeries[sensorKey];
-    const entry = chartState?.activePayload?.find((item) => item.dataKey === dataKey);
-    const day = days.find((item) => dataKey === `${item.key}_${sensorKey}`);
-    const row = entry?.payload;
-    if (day) selectPoint(sensorKey, day, row, row?.[dataKey]);
-  }
-
   useEffect(() => {
     if (!canLoadGraph) {
       setLoading(false);
@@ -167,7 +138,6 @@ export default function Graphs() {
       setPoints([]);
       setDays([]);
       setSelectedPoints({});
-      setHoveredSeries({});
       return;
     }
 
@@ -175,7 +145,6 @@ export default function Graphs() {
     setError("");
     setPoints([]);
     setSelectedPoints({});
-    setHoveredSeries({});
     api
       .graphData(timeRange.start, timeRange.end, station)
       .then((res) => {
@@ -237,7 +206,6 @@ export default function Graphs() {
                 <LineChart
                   data={points}
                   margin={{ top: 10, right: 22, bottom: 24, left: 20 }}
-                  onMouseMove={(chartState) => selectHoveredPoint(sensor.key, chartState)}
                 >
                   <CartesianGrid stroke="var(--line)" strokeDasharray="3 3" />
                   <XAxis
@@ -264,10 +232,6 @@ export default function Graphs() {
                       fontWeight: 700,
                       offset: -8,
                     }}
-                  />
-                  <Tooltip
-                    shared={false}
-                    content={<SensorTooltip hoveredDataKey={hoveredSeries[sensor.key]} />}
                   />
                   <Legend
                     verticalAlign="bottom"
@@ -303,21 +267,6 @@ export default function Graphs() {
                       stroke={day.color}
                       onClick={(lineData) => {
                         selectLine(sensor.key, day, lineData);
-                      }}
-                      onMouseEnter={(lineData) => {
-                        setHoveredSeries((current) => ({
-                          ...current,
-                          [sensor.key]: `${day.key}_${sensor.key}`,
-                        }));
-                        selectLine(sensor.key, day, lineData);
-                      }}
-                      onMouseLeave={() => {
-                        setHoveredSeries((current) => {
-                          if (current[sensor.key] !== `${day.key}_${sensor.key}`) return current;
-                          const next = { ...current };
-                          delete next[sensor.key];
-                          return next;
-                        });
                       }}
                       style={{ cursor: "pointer" }}
                       dot={(dotProps) => {
