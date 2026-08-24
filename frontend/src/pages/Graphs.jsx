@@ -250,7 +250,7 @@ export default function Graphs() {
                       offset: -8,
                     }}
                   />
-                  <Tooltip content={<SensorTooltip />} />
+                  <Tooltip shared={false} content={<SensorTooltip />} />
                   <Legend
                     verticalAlign="bottom"
                     height={72}
