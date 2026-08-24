@@ -148,6 +148,13 @@ export default function Graphs() {
     selectPoint(sensorKey, day, row, row?.[dataKey]);
   }
 
+  function selectHoveredPoint(sensorKey, chartState) {
+    const entry = chartState?.activePayload?.[0];
+    const day = days.find((item) => entry?.dataKey === `${item.key}_${sensorKey}`);
+    const row = entry?.payload;
+    if (day) selectPoint(sensorKey, day, row, row?.[entry.dataKey]);
+  }
+
   useEffect(() => {
     if (!canLoadGraph) {
       setLoading(false);
@@ -223,6 +230,7 @@ export default function Graphs() {
                 <LineChart
                   data={points}
                   margin={{ top: 10, right: 22, bottom: 24, left: 20 }}
+                  onMouseMove={(chartState) => selectHoveredPoint(sensor.key, chartState)}
                 >
                   <CartesianGrid stroke="var(--line)" strokeDasharray="3 3" />
                   <XAxis
