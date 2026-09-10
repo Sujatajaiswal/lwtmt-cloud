@@ -5,6 +5,8 @@ const { requireAuth } = require("../middleware/auth");
 const router = express.Router();
 
 const RECORD_COLUMNS = [
+  ["sample_no", "Sample No"],
+  ["recorded_at", "Date & Time"],
   ["inspector_name", "Name"],
   ["designation", "Designation"],
   ["station_no", "Station No"],
