@@ -37,6 +37,18 @@ CREATE TABLE IF NOT EXISTS survey_records (
     curve_no          VARCHAR(64),
     level_crossing_no VARCHAR(64),
     hectometer_post   VARCHAR(64),
+    track_feature     TEXT,
+    track_feature_location TEXT,
+    bridge_start      TEXT,
+    bridge_end        TEXT,
+    level_crossing_in TEXT,
+    level_crossing_out TEXT,
+    kilometer_post    TEXT,
+    points_crossing   TEXT,
+    curve_in          TEXT,
+    curve_out         TEXT,
+    ohe_mast_location TEXT,
+    switch_expansion_joint TEXT,
     latitude          DOUBLE PRECISION,
     longitude         DOUBLE PRECISION,
     distance          DOUBLE PRECISION,
@@ -66,6 +78,21 @@ BEGIN
 END $$;
 
 ALTER TABLE survey_records DROP COLUMN IF EXISTS absolute_tilt;
+
+-- Track feature values are operator-entered free text.  TEXT avoids the
+-- VARCHAR(64) failures caused by detailed location descriptions.
+ALTER TABLE survey_records ADD COLUMN IF NOT EXISTS track_feature TEXT;
+ALTER TABLE survey_records ADD COLUMN IF NOT EXISTS track_feature_location TEXT;
+ALTER TABLE survey_records ADD COLUMN IF NOT EXISTS bridge_start TEXT;
+ALTER TABLE survey_records ADD COLUMN IF NOT EXISTS bridge_end TEXT;
+ALTER TABLE survey_records ADD COLUMN IF NOT EXISTS level_crossing_in TEXT;
+ALTER TABLE survey_records ADD COLUMN IF NOT EXISTS level_crossing_out TEXT;
+ALTER TABLE survey_records ADD COLUMN IF NOT EXISTS kilometer_post TEXT;
+ALTER TABLE survey_records ADD COLUMN IF NOT EXISTS points_crossing TEXT;
+ALTER TABLE survey_records ADD COLUMN IF NOT EXISTS curve_in TEXT;
+ALTER TABLE survey_records ADD COLUMN IF NOT EXISTS curve_out TEXT;
+ALTER TABLE survey_records ADD COLUMN IF NOT EXISTS ohe_mast_location TEXT;
+ALTER TABLE survey_records ADD COLUMN IF NOT EXISTS switch_expansion_joint TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_records_survey ON survey_records (survey_id);
 CREATE INDEX IF NOT EXISTS idx_records_station ON survey_records (station_code);

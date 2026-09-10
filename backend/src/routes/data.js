@@ -16,6 +16,18 @@ const RECORD_COLUMNS = [
   ["curve_no", "Curve No"],
   ["level_crossing_no", "Level Crossing No"],
   ["hectometer_post", "Hectometer Post"],
+  ["track_feature", "Track Feature"],
+  ["track_feature_location", "Track Feature Location"],
+  ["bridge_start", "Bridge (Start)"],
+  ["bridge_end", "Bridge (End)"],
+  ["level_crossing_in", "Level Crossing (LC) In"],
+  ["level_crossing_out", "Level Crossing (LC) Out"],
+  ["kilometer_post", "Kilometer Post (KM)"],
+  ["points_crossing", "Points & Crossing (P&C)"],
+  ["curve_in", "Curve-In"],
+  ["curve_out", "Curve Out"],
+  ["ohe_mast_location", "OHE Mast (OHEM) Location"],
+  ["switch_expansion_joint", "Switch Expansion Joint (SEJ)"],
   ["latitude", "Lattitude"],
   ["longitude", "Longitude"],
   ["distance", "Distance"],
@@ -113,8 +125,11 @@ async function loadRecords(filters) {
       sr.survey_id, sr.sample_no, sr.recorded_at, sr.reference_type, sr.reference_point,
       COALESCE(sr.station_code, s.station_code) AS station_code,
       sr.chainage, sr.loop_line_siding, sr.turnout_no, sr.curve_no,
-      sr.level_crossing_no, sr.hectometer_post, sr.latitude, sr.longitude, sr.distance,
-      sr.gauge, sr.crossover, sr.twist
+      sr.level_crossing_no, sr.hectometer_post, sr.track_feature, sr.track_feature_location,
+      sr.bridge_start, sr.bridge_end, sr.level_crossing_in, sr.level_crossing_out,
+      sr.kilometer_post, sr.points_crossing, sr.curve_in, sr.curve_out,
+      sr.ohe_mast_location, sr.switch_expansion_joint, sr.latitude, sr.longitude,
+      sr.distance, sr.gauge, sr.crossover, sr.twist
     FROM survey_records sr
     JOIN surveys s ON s.id = sr.survey_id
     ${where.text}
