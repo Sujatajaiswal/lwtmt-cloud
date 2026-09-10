@@ -80,14 +80,14 @@ router.post("/survey", async (req, res) => {
     const insertText = `
       INSERT INTO survey_records (
         survey_id, sample_no, recorded_at, reference_type, reference_point,
-        station_code, chainage, loop_line_siding, turnout_no, curve_no,
+        station_no, station_code, chainage, loop_line_siding, turnout_no, curve_no,
         level_crossing_no, hectometer_post, track_feature, track_feature_location,
         bridge_start, bridge_end, level_crossing_in, level_crossing_out,
         kilometer_post, points_crossing, curve_in, curve_out, ohe_mast_location,
         switch_expansion_joint, latitude, longitude, distance, gauge, crossover, twist
       ) VALUES (
         $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,
-        $19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30
+        $19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31
       )`;
 
     for (const row of data) {
@@ -97,6 +97,7 @@ router.post("/survey", async (req, res) => {
         toTimestamp(firstValue(row, ["Date & Time", "Date Time", "Timestamp", "Recorded At"])),
         firstValue(row, ["Reference Type"]) || null,
         firstValue(row, ["Reference Point"]) || null,
+        firstValue(row, ["Station No", "Station"]) || null,
         firstValue(row, ["Station Code", "Station No", "Station"]) || null,
         toNumber(firstValue(row, ["Chainage", "Chainage (m)"])),
         firstValue(row, ["Loop/Line Siding", "Loop Line Siding"]) || null,

@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS survey_records (
     recorded_at       TIMESTAMPTZ,
     reference_type    VARCHAR(64),
     reference_point   VARCHAR(64),
+    station_no        TEXT,
     station_code      VARCHAR(64),
     chainage          DOUBLE PRECISION,
     loop_line_siding  VARCHAR(64),
@@ -82,6 +83,7 @@ ALTER TABLE survey_records DROP COLUMN IF EXISTS absolute_tilt;
 -- Track feature values are operator-entered free text.  TEXT avoids the
 -- VARCHAR(64) failures caused by detailed location descriptions.
 ALTER TABLE survey_records ADD COLUMN IF NOT EXISTS track_feature TEXT;
+ALTER TABLE survey_records ADD COLUMN IF NOT EXISTS station_no TEXT;
 ALTER TABLE survey_records ADD COLUMN IF NOT EXISTS track_feature_location TEXT;
 ALTER TABLE survey_records ADD COLUMN IF NOT EXISTS bridge_start TEXT;
 ALTER TABLE survey_records ADD COLUMN IF NOT EXISTS bridge_end TEXT;

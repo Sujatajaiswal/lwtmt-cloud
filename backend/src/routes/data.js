@@ -5,10 +5,9 @@ const { requireAuth } = require("../middleware/auth");
 const router = express.Router();
 
 const RECORD_COLUMNS = [
-  ["sample_no", "Sample No"],
-  ["recorded_at", "Date & Time"],
-  ["reference_type", "Reference Type"],
-  ["reference_point", "Reference Point"],
+  ["inspector_name", "Name"],
+  ["designation", "Designation"],
+  ["station_no", "Station No"],
   ["station_code", "Station Code"],
   ["chainage", "Chainage"],
   ["loop_line_siding", "Loop/Line Siding"],
@@ -122,7 +121,9 @@ async function loadRecords(filters) {
 
   const query = `
     SELECT
-      sr.survey_id, sr.sample_no, sr.recorded_at, sr.reference_type, sr.reference_point,
+      sr.survey_id, sr.sample_no, sr.recorded_at,
+      s.surveyor_name AS inspector_name, s.designation,
+      sr.station_no,
       COALESCE(sr.station_code, s.station_code) AS station_code,
       sr.chainage, sr.loop_line_siding, sr.turnout_no, sr.curve_no,
       sr.level_crossing_no, sr.hectometer_post, sr.track_feature, sr.track_feature_location,
