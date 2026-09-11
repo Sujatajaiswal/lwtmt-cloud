@@ -129,9 +129,6 @@ export default function DataRecords() {
                             <a className="table-action-btn" href={record.export_excel_url}>
                               Excel
                             </a>
-                            <a className="table-action-btn" href={record.export_pdf_url}>
-                              PDF
-                            </a>
                           </div>
                         </td>
                       );
