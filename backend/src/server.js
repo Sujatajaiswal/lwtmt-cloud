@@ -70,8 +70,7 @@ async function seedDemoSurveyIfEnabled() {
   const stationCode = process.env.DEMO_STATION_CODE || "SIM-STN-01";
   const days = Number(process.env.DEMO_DAYS || 10);
   const rowCount = Number(process.env.DEMO_ROW_COUNT || 120);
-  const demoEnabled =
-    String(process.env.SEED_DEMO_ON_START).toLowerCase() === "true" || stationCode === "SIM-STN-01";
+    const demoEnabled = String(process.env.SEED_DEMO_ON_START).toLowerCase() === "true" || stationCode === "SIM-STN-01";
 
   if (!Number.isInteger(days) || days < 1 || !Number.isInteger(rowCount) || rowCount < 1) {
     throw new Error("DEMO_DAYS and DEMO_ROW_COUNT must be positive integers");
@@ -114,12 +113,15 @@ async function seedDemoSurveyIfEnabled() {
 
     const insertText = `
       INSERT INTO survey_records (
-        survey_id, sample_no, recorded_at, reference_type, reference_point,
-        station_code, chainage, loop_line_siding, turnout_no, curve_no,
-        level_crossing_no, hectometer_post, latitude, longitude, distance,
-        gauge, crossover, twist
+          survey_id, sample_no, recorded_at, name, designation, station_no,
+          station_code, chainage, loop_line_siding, turnout_no, curve_no,
+          level_crossing_no, hectometer_post, bridge_start, bridge_end,
+          level_crossing_lc_in, level_crossing_lc_out, kilometer_post,
+          points_crossing, curve_in, curve_out, ohe_mast_location,
+          switch_expansion_joint, latitude, longitude, distance, gauge, crosslevel, twist
       ) VALUES (
-        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18
+          $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,
+          $19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29
       )`;
 
     for (let dayIndex = 0; dayIndex < days; dayIndex += 1) {
@@ -145,10 +147,20 @@ async function seedDemoSurveyIfEnabled() {
           i,
           recordedAt.toISOString(),
           "Demo",
-          `RP-${String(i).padStart(3, "0")}`,
+          "Simulation",
+          null,
           stationCode,
           chainage,
           "Main",
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
           null,
           null,
           null,

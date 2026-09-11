@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { FilterProvider } from "./context/FilterContext";
 import RequireAuth from "./components/RequireAuth";
@@ -25,7 +25,7 @@ export default function App() {
   return (
     <AuthProvider>
       <FilterProvider>
-        <BrowserRouter>
+        <HashRouter>
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route
@@ -70,7 +70,7 @@ export default function App() {
             />
             <Route path="*" element={<Navigate to="/time-range" replace />} />
           </Routes>
-        </BrowserRouter>
+        </HashRouter>
       </FilterProvider>
     </AuthProvider>
   );

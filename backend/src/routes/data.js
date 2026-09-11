@@ -1,3 +1,7 @@
+const fs = require("fs");
+const os = require("os");
+const path = require("path");
+const { execFileSync } = require("child_process");
 const express = require("express");
 const pool = require("../db/pool");
 const { requireAuth } = require("../middleware/auth");
@@ -7,7 +11,7 @@ const router = express.Router();
 const RECORD_COLUMNS = [
   ["sample_no", "Sample No"],
   ["recorded_at", "Date & Time"],
-  ["inspector_name", "Name"],
+  ["name", "Name"],
   ["designation", "Designation"],
   ["station_no", "Station No"],
   ["station_code", "Station Code"],
@@ -17,12 +21,10 @@ const RECORD_COLUMNS = [
   ["curve_no", "Curve No"],
   ["level_crossing_no", "Level Crossing No"],
   ["hectometer_post", "Hectometer Post"],
-  ["track_feature", "Track Feature"],
-  ["track_feature_location", "Track Feature Location"],
   ["bridge_start", "Bridge (Start)"],
   ["bridge_end", "Bridge (End)"],
-  ["level_crossing_in", "Level Crossing (LC) In"],
-  ["level_crossing_out", "Level Crossing (LC) Out"],
+  ["level_crossing_lc_in", "Level Crossing (LC) In"],
+  ["level_crossing_lc_out", "Level Crossing (LC) Out"],
   ["kilometer_post", "Kilometer Post (KM)"],
   ["points_crossing", "Points & Crossing (P&C)"],
   ["curve_in", "Curve-In"],
@@ -33,7 +35,7 @@ const RECORD_COLUMNS = [
   ["longitude", "Longitude"],
   ["distance", "Distance"],
   ["gauge", "Gauge"],
-  ["crossover", "Crosslevel"],
+  ["crosslevel", "Crosslevel"],
   ["twist", "Twist"],
 ];
 
@@ -124,15 +126,15 @@ async function loadRecords(filters) {
   const query = `
     SELECT
       sr.survey_id, sr.sample_no, sr.recorded_at,
-      s.surveyor_name AS inspector_name, s.designation,
+      sr.name, COALESCE(sr.designation, s.designation) AS designation,
       sr.station_no,
       COALESCE(sr.station_code, s.station_code) AS station_code,
       sr.chainage, sr.loop_line_siding, sr.turnout_no, sr.curve_no,
-      sr.level_crossing_no, sr.hectometer_post, sr.track_feature, sr.track_feature_location,
-      sr.bridge_start, sr.bridge_end, sr.level_crossing_in, sr.level_crossing_out,
+      sr.level_crossing_no, sr.hectometer_post,
+      sr.bridge_start, sr.bridge_end, sr.level_crossing_lc_in, sr.level_crossing_lc_out,
       sr.kilometer_post, sr.points_crossing, sr.curve_in, sr.curve_out,
       sr.ohe_mast_location, sr.switch_expansion_joint, sr.latitude, sr.longitude,
-      sr.distance, sr.gauge, sr.crossover, sr.twist
+      sr.distance, sr.gauge, sr.crosslevel, sr.twist
     FROM survey_records sr
     JOIN surveys s ON s.id = sr.survey_id
     ${where.text}
@@ -152,10 +154,7 @@ async function loadSurveyRows(filters, baseUrl) {
       s.station_code,
       COALESCE(MIN(sr.recorded_at), s.uploaded_at) AS started_at,
       COALESCE(MAX(sr.recorded_at), s.uploaded_at) AS stopped_at,
-      COALESCE(
-        NULLIF((ARRAY_AGG(sr.reference_type ORDER BY sr.recorded_at ASC NULLS LAST, sr.sample_no ASC))[1], ''),
-        'Survey'
-      ) AS type,
+      'Survey' AS type,
       COALESCE(s.row_count, COUNT(sr.id)::int, 0) AS row_count
     FROM surveys s
     LEFT JOIN survey_records sr ON sr.survey_id = s.id
@@ -313,6 +312,45 @@ function surveyFilename(record, ext) {
   return `${base}.${ext}`;
 }
 
+function getExportPassword() {
+  return process.env.EXPORT_PASSWORD || process.env.DOWNLOAD_PASSWORD || "";
+}
+
+function sendProtectedExport(res, buffer, originalFilename, mimeType, disposition) {
+  const exportPassword = getExportPassword();
+  const dispositionLabel = disposition === "inline" ? "inline" : "attachment";
+
+  if (!exportPassword) {
+    res.setHeader("Content-Type", mimeType);
+    res.setHeader("Content-Disposition", dispositionLabel + '; filename="' + originalFilename + '"');
+    res.send(buffer);
+    return;
+  }
+
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "lwtmt-export-"));
+  const sourcePath = path.join(tempDir, originalFilename);
+  const baseName = path.basename(originalFilename, path.extname(originalFilename));
+  const archiveName = baseName + ".zip";
+  const archivePath = path.join(tempDir, archiveName);
+
+  try {
+    fs.writeFileSync(sourcePath, buffer);
+    execFileSync("zip", ["-j", "-P", exportPassword, archivePath, sourcePath], { stdio: "pipe" });
+    const zipBuffer = fs.readFileSync(archivePath);
+
+    res.setHeader("Content-Type", "application/zip");
+    res.setHeader("Content-Disposition", dispositionLabel + '; filename="' + archiveName + '"');
+    res.send(zipBuffer);
+  } catch (err) {
+    console.error("Export password protection failed:", err.message);
+    res.setHeader("Content-Type", mimeType);
+    res.setHeader("Content-Disposition", dispositionLabel + '; filename="' + originalFilename + '"');
+    res.send(buffer);
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
 // GET /api/stations?start=...&end=...
 // Returns distinct station codes seen within an optional time range (Page 3 dropdown).
 router.get("/stations", requireAuth, async (req, res) => {
@@ -466,51 +504,40 @@ router.get("/records/export", requireAuth, async (req, res) => {
       : null;
 
     if (format === "excel") {
-      res.setHeader("Content-Type", "application/vnd.ms-excel; charset=utf-8");
-      res.setHeader(
-        "Content-Disposition",
-        `attachment; filename="${survey ? surveyFilename(survey, "xls") : filenameFor(station, "xls")}"`
-      );
-      return res.send(recordsToExcelHtml(records, station));
+      const filename = survey ? surveyFilename(survey, "xls") : filenameFor(station, "xls");
+      const buffer = Buffer.from(recordsToExcelHtml(records, station), "utf8");
+      return sendProtectedExport(res, buffer, filename, "application/vnd.ms-excel; charset=utf-8", disposition);
     }
 
     if (format === "pdf") {
-      res.setHeader("Content-Type", "application/pdf");
-      res.setHeader(
-        "Content-Disposition",
-        `attachment; filename="${survey ? surveyFilename(survey, "pdf") : filenameFor(station, "pdf")}"`
-      );
-      return res.send(recordsToPdf(records, station, start, end));
+      const filename = survey ? surveyFilename(survey, "pdf") : filenameFor(station, "pdf");
+      const buffer = recordsToPdf(records, station, start, end);
+      return sendProtectedExport(res, buffer, filename, "application/pdf", disposition);
     }
 
-    res.setHeader("Content-Type", "text/csv; charset=utf-8");
-    res.setHeader(
-      "Content-Disposition",
-      `${disposition === "inline" ? "inline" : "attachment"}; filename="${
-        survey ? surveyFilename(survey, "csv") : filenameFor(station, "csv")
-      }"`
-    );
-    return res.send(recordsToCsv(records));
+    const filename = survey ? surveyFilename(survey, "csv") : filenameFor(station, "csv");
+    const buffer = Buffer.from(recordsToCsv(records), "utf8");
+    return sendProtectedExport(res, buffer, filename, "text/csv; charset=utf-8", disposition);
   } catch (err) {
     if (isMissingTable(err)) {
       console.warn("survey_records table does not exist; exporting an empty file.");
       const emptyRecords = [];
 
       if (format === "excel") {
-        res.setHeader("Content-Type", "application/vnd.ms-excel; charset=utf-8");
-        res.setHeader("Content-Disposition", `attachment; filename="${filenameFor(station, "xls")}"`);
-        return res.send(recordsToExcelHtml(emptyRecords, station));
+        const filename = filenameFor(station, "xls");
+        const buffer = Buffer.from(recordsToExcelHtml(emptyRecords, station), "utf8");
+        return sendProtectedExport(res, buffer, filename, "application/vnd.ms-excel; charset=utf-8", disposition);
       }
 
       if (format === "pdf") {
-        res.setHeader("Content-Type", "application/pdf");
-        res.setHeader("Content-Disposition", `attachment; filename="${filenameFor(station, "pdf")}"`);
-        return res.send(recordsToPdf(emptyRecords, station, start, end));
+        const filename = filenameFor(station, "pdf");
+        const buffer = recordsToPdf(emptyRecords, station, start, end);
+        return sendProtectedExport(res, buffer, filename, "application/pdf", disposition);
       }
 
-      res.setHeader("Content-Type", "text/csv; charset=utf-8");
-      res.setHeader("Content-Disposition", `attachment; filename="${filenameFor(station, "csv")}"`);
-      return res.send(recordsToCsv(emptyRecords));
+      const filename = filenameFor(station, "csv");
+      const buffer = Buffer.from(recordsToCsv(emptyRecords), "utf8");
+      return sendProtectedExport(res, buffer, filename, "text/csv; charset=utf-8", disposition);
     }
 
     if (err.statusCode === 400) {
