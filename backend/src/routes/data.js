@@ -321,9 +321,7 @@ function sendProtectedExport(res, buffer, originalFilename, mimeType, dispositio
   const dispositionLabel = disposition === "inline" ? "inline" : "attachment";
 
   if (!exportPassword) {
-    res.setHeader("Content-Type", mimeType);
-    res.setHeader("Content-Disposition", dispositionLabel + '; filename="' + originalFilename + '"');
-    res.send(buffer);
+    res.status(503).json({ error: "Download password is not configured on the backend" });
     return;
   }
 
@@ -343,9 +341,7 @@ function sendProtectedExport(res, buffer, originalFilename, mimeType, dispositio
     res.send(zipBuffer);
   } catch (err) {
     console.error("Export password protection failed:", err.message);
-    res.setHeader("Content-Type", mimeType);
-    res.setHeader("Content-Disposition", dispositionLabel + '; filename="' + originalFilename + '"');
-    res.send(buffer);
+    res.status(503).json({ error: "Password-protected download is temporarily unavailable" });
   } finally {
     fs.rmSync(tempDir, { recursive: true, force: true });
   }
