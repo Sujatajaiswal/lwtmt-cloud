@@ -333,6 +333,9 @@ function sendProtectedExport(res, buffer, originalFilename, mimeType, dispositio
 
   try {
     fs.writeFileSync(sourcePath, buffer);
+    if (process.platform !== "win32") {
+      fs.chmodSync(path7za, 0o755);
+    }
     execFileSync(
       path7za,
       ["a", "-t7z", "-mhe=on", `-p${exportPassword}`, archivePath, sourcePath],
@@ -344,7 +347,13 @@ function sendProtectedExport(res, buffer, originalFilename, mimeType, dispositio
     res.setHeader("Content-Disposition", dispositionLabel + '; filename="' + archiveName + '"');
     res.send(zipBuffer);
   } catch (err) {
-    console.error("Export password protection failed:", err.message);
+    console.error("Export password protection failed:", {
+      message: err.message,
+      stdout: err.stdout?.toString(),
+      stderr: err.stderr?.toString(),
+      archiveTool: path7za,
+      platform: process.platform,
+    });
     res.status(503).json({ error: "Password-protected download is temporarily unavailable" });
   } finally {
     fs.rmSync(tempDir, { recursive: true, force: true });
