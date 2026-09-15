@@ -3,6 +3,8 @@ const os = require("os");
 const path = require("path");
 const { execFileSync } = require("child_process");
 const { path7za } = require("7zip-bin");
+const XlsxPopulate = require("xlsx-populate");
+const officeCrypto = require("officecrypto-tool");
 const express = require("express");
 const pool = require("../db/pool");
 const { requireAuth } = require("../middleware/auth");
@@ -234,6 +236,33 @@ function recordsToExcelHtml(records, station) {
 </html>`;
 }
 
+async function recordsToProtectedExcel(records, station) {
+  const workbook = await XlsxPopulate.fromBlankAsync();
+  const sheet = workbook.sheet(0);
+  sheet.name("Survey Records");
+
+  const rows = [
+    [`LWTMT Survey Records - ${station || "All Stations"}`],
+    RECORD_COLUMNS.map(([, label]) => label),
+    ...recordsToRows(records),
+  ];
+
+  rows.forEach((row, rowIndex) => {
+    row.forEach((value, columnIndex) => {
+      sheet.cell(rowIndex + 1, columnIndex + 1).value(value);
+    });
+  });
+
+  sheet.row(1).height(24);
+  sheet.range(1, 1, 1, RECORD_COLUMNS.length).merged(true);
+  sheet.range(1, 1, 1, RECORD_COLUMNS.length).style({ bold: true, fontSize: 14 });
+  sheet.range(2, 1, 2, RECORD_COLUMNS.length).style({ bold: true, fill: "D9EAF7" });
+  sheet.usedRange().style({ wrapText: true, verticalAlignment: "center" });
+
+  const workbookBuffer = await workbook.outputAsync();
+  return Buffer.from(officeCrypto.encrypt(workbookBuffer, { password: getExportPassword() }));
+}
+
 function pdfEscape(value) {
   return String(value ?? "").replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
 }
@@ -358,6 +387,16 @@ function sendProtectedExport(res, buffer, originalFilename, mimeType, dispositio
   } finally {
     fs.rmSync(tempDir, { recursive: true, force: true });
   }
+}
+
+function sendProtectedExcel(res, buffer, originalFilename, disposition) {
+  const dispositionLabel = disposition === "inline" ? "inline" : "attachment";
+  res.setHeader(
+    "Content-Type",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  );
+  res.setHeader("Content-Disposition", dispositionLabel + '; filename="' + originalFilename + '"');
+  res.send(buffer);
 }
 
 // GET /api/stations?start=...&end=...
@@ -513,9 +552,9 @@ router.get("/records/export", requireAuth, async (req, res) => {
       : null;
 
     if (format === "excel") {
-      const filename = survey ? surveyFilename(survey, "xls") : filenameFor(station, "xls");
-      const buffer = Buffer.from(recordsToExcelHtml(records, station), "utf8");
-      return sendProtectedExport(res, buffer, filename, "application/vnd.ms-excel; charset=utf-8", disposition);
+      const filename = survey ? surveyFilename(survey, "xlsx") : filenameFor(station, "xlsx");
+      const buffer = await recordsToProtectedExcel(records, station);
+      return sendProtectedExcel(res, buffer, filename, disposition);
     }
 
     const filename = survey ? surveyFilename(survey, "csv") : filenameFor(station, "csv");
@@ -527,9 +566,9 @@ router.get("/records/export", requireAuth, async (req, res) => {
       const emptyRecords = [];
 
       if (format === "excel") {
-        const filename = filenameFor(station, "xls");
-        const buffer = Buffer.from(recordsToExcelHtml(emptyRecords, station), "utf8");
-        return sendProtectedExport(res, buffer, filename, "application/vnd.ms-excel; charset=utf-8", disposition);
+        const filename = filenameFor(station, "xlsx");
+        const buffer = await recordsToProtectedExcel(emptyRecords, station);
+        return sendProtectedExcel(res, buffer, filename, disposition);
       }
 
       const filename = filenameFor(station, "csv");
