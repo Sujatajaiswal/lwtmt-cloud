@@ -2,6 +2,7 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 const { execFileSync } = require("child_process");
+const { path7za } = require("7zip-bin");
 const express = require("express");
 const pool = require("../db/pool");
 const { requireAuth } = require("../middleware/auth");
@@ -175,7 +176,6 @@ async function loadSurveyRows(filters, baseUrl) {
     row_count: Number(row.row_count || 0),
     view_csv_url: `${baseUrl}/records/export?format=csv&surveyId=${encodeURIComponent(row.survey_id)}&disposition=inline`,
     export_excel_url: `${baseUrl}/records/export?format=excel&surveyId=${encodeURIComponent(row.survey_id)}`,
-    export_pdf_url: `${baseUrl}/records/export?format=pdf&surveyId=${encodeURIComponent(row.survey_id)}`,
   }));
 }
 
@@ -328,15 +328,19 @@ function sendProtectedExport(res, buffer, originalFilename, mimeType, dispositio
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "lwtmt-export-"));
   const sourcePath = path.join(tempDir, originalFilename);
   const baseName = path.basename(originalFilename, path.extname(originalFilename));
-  const archiveName = baseName + ".zip";
+  const archiveName = baseName + ".7z";
   const archivePath = path.join(tempDir, archiveName);
 
   try {
     fs.writeFileSync(sourcePath, buffer);
-    execFileSync("zip", ["-j", "-P", exportPassword, archivePath, sourcePath], { stdio: "pipe" });
+    execFileSync(
+      path7za,
+      ["a", "-t7z", "-mhe=on", `-p${exportPassword}`, archivePath, sourcePath],
+      { stdio: "pipe" }
+    );
     const zipBuffer = fs.readFileSync(archivePath);
 
-    res.setHeader("Content-Type", "application/zip");
+    res.setHeader("Content-Type", "application/x-7z-compressed");
     res.setHeader("Content-Disposition", dispositionLabel + '; filename="' + archiveName + '"');
     res.send(zipBuffer);
   } catch (err) {
@@ -505,12 +509,6 @@ router.get("/records/export", requireAuth, async (req, res) => {
       return sendProtectedExport(res, buffer, filename, "application/vnd.ms-excel; charset=utf-8", disposition);
     }
 
-    if (format === "pdf") {
-      const filename = survey ? surveyFilename(survey, "pdf") : filenameFor(station, "pdf");
-      const buffer = recordsToPdf(records, station, start, end);
-      return sendProtectedExport(res, buffer, filename, "application/pdf", disposition);
-    }
-
     const filename = survey ? surveyFilename(survey, "csv") : filenameFor(station, "csv");
     const buffer = Buffer.from(recordsToCsv(records), "utf8");
     return sendProtectedExport(res, buffer, filename, "text/csv; charset=utf-8", disposition);
@@ -523,12 +521,6 @@ router.get("/records/export", requireAuth, async (req, res) => {
         const filename = filenameFor(station, "xls");
         const buffer = Buffer.from(recordsToExcelHtml(emptyRecords, station), "utf8");
         return sendProtectedExport(res, buffer, filename, "application/vnd.ms-excel; charset=utf-8", disposition);
-      }
-
-      if (format === "pdf") {
-        const filename = filenameFor(station, "pdf");
-        const buffer = recordsToPdf(emptyRecords, station, start, end);
-        return sendProtectedExport(res, buffer, filename, "application/pdf", disposition);
       }
 
       const filename = filenameFor(station, "csv");
