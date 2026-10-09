@@ -36,7 +36,11 @@ app.use(express.json({ limit: "5mb" }));
 app.use(cookieParser());
 
 app.get("/health", (req, res) => {
-  res.json({ ok: true, service: "lwtmt-cloud-backend" });
+  res.json({
+    ok: true,
+    service: "lwtmt-cloud-backend",
+    exportPasswordConfigured: Boolean(process.env.EXPORT_PASSWORD || process.env.DOWNLOAD_PASSWORD),
+  });
 });
 
 app.use("/api", authRoutes);
