@@ -34,14 +34,18 @@ function envOperatorLogin(username, password) {
 }
 
 function isDatabaseUnavailable(err) {
-  return [
+  if ([
     "42P01",
     "ENOTFOUND",
     "ECONNREFUSED",
     "ETIMEDOUT",
     "ECONNRESET",
     "EAI_AGAIN",
-  ].includes(err.code);
+  ].includes(err.code)) {
+    return true;
+  }
+
+  return String(err.message || "").toLowerCase() === "connection terminated unexpectedly";
 }
 
 async function databaseUserLogin(username, password) {
@@ -83,7 +87,9 @@ router.post("/login", async (req, res) => {
       if (!isDatabaseUnavailable(err)) {
         throw err;
       }
-      console.warn(`Postgres login unavailable (${err.code}); falling back to operator env login.`);
+      console.warn(
+        `Postgres login unavailable (${err.code || err.message}); falling back to operator env login.`
+      );
     }
 
     user = user || envOperatorLogin(username, password);
