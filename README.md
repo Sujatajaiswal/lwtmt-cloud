@@ -46,6 +46,8 @@ Edit `.env`:
 - `DATABASE_SSL` — leave `false` for local Postgres
 - `JWT_SECRET` — replace with any long random string
 - `ADMIN_USERNAME` / `ADMIN_PASSWORD` — the admin login you'll use to sign in
+- `CSV_TIMEZONE_OFFSET_MINUTES` — timezone offset for timestamps written by the trolley
+  (330 for India/UTC+05:30); it is also used in downloaded CSV/Excel exports.
 
 Install dependencies, create the tables, and seed the admin user:
 

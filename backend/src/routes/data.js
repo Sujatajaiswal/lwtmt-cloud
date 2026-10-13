@@ -8,6 +8,7 @@ const officeCrypto = require("officecrypto-tool");
 const express = require("express");
 const pool = require("../db/pool");
 const { requireAuth } = require("../middleware/auth");
+const { formatDateTime } = require("../utils/surveyValues");
 
 const router = express.Router();
 
@@ -34,7 +35,7 @@ const RECORD_COLUMNS = [
   ["curve_out", "Curve Out"],
   ["ohe_mast_location", "OHE Mast (OHEM) Location"],
   ["switch_expansion_joint", "Switch Expansion Joint (SEJ)"],
-  ["latitude", "Lattitude"],
+  ["latitude", "Latitude"],
   ["longitude", "Longitude"],
   ["distance", "Distance"],
   ["gauge", "Gauge"],
@@ -179,16 +180,6 @@ async function loadSurveyRows(filters, baseUrl) {
     view_csv_url: `${baseUrl}/records/export?format=csv&surveyId=${encodeURIComponent(row.survey_id)}&disposition=inline`,
     export_excel_url: `${baseUrl}/records/export?format=excel&surveyId=${encodeURIComponent(row.survey_id)}`,
   }));
-}
-
-function formatDateTime(value) {
-  if (!value) return "";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return String(value);
-  const pad = (part) => String(part).padStart(2, "0");
-  return `${pad(d.getUTCDate())}-${pad(d.getUTCMonth() + 1)}-${d.getUTCFullYear()} ${pad(
-    d.getUTCHours()
-  )}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`;
 }
 
 function csvEscape(value) {

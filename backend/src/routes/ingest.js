@@ -1,55 +1,8 @@
 const express = require("express");
 const pool = require("../db/pool");
+const { firstValue, toNumber, toTimestamp } = require("../utils/surveyValues");
 
 const router = express.Router();
-
-// Maps the CSV column names the BeagleBone already sends to our DB columns.
-// Keeping the same field names on the wire means the trolley's upload code
-// (push_latest_csv.sh / launch_railgui25_backend.py) doesn't need to change.
-function toNumber(value) {
-  if (value === undefined || value === null || value === "") return null;
-  const n = Number(value);
-  return Number.isFinite(n) ? n : null;
-}
-
-function toTimestamp(value) {
-  if (!value) return null;
-  if (value instanceof Date && !Number.isNaN(value.getTime())) {
-    return value.toISOString();
-  }
-  const text = String(value).trim();
-  const ddMmYyyy = text.match(
-    /^(\d{1,2})-(\d{1,2})-(\d{4})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/
-  );
-
-  if (ddMmYyyy) {
-    const [, day, month, year, hour = "0", minute = "0", second = "0"] = ddMmYyyy;
-    const offsetMinutes = Number(process.env.CSV_TIMEZONE_OFFSET_MINUTES || 330);
-    const d = new Date(
-      Date.UTC(
-        Number(year),
-        Number(month) - 1,
-        Number(day),
-        Number(hour),
-        Number(minute),
-        Number(second)
-      ) - offsetMinutes * 60 * 1000
-    );
-    return Number.isNaN(d.getTime()) ? null : d.toISOString();
-  }
-
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? null : d.toISOString();
-}
-
-function firstValue(row, names) {
-  for (const name of names) {
-    if (row[name] !== undefined && row[name] !== null && row[name] !== "") {
-      return row[name];
-    }
-  }
-  return null;
-}
 
 // Same endpoint the BeagleBone already posts to on STOP: POST /api/survey
 // Body shape: { filename: "...", data: [ {..row..}, {..row..}, ... ] }
@@ -94,7 +47,16 @@ router.post("/survey", async (req, res) => {
       await client.query(insertText, [
         surveyId,
         toNumber(firstValue(row, ["Sample No", "Sample Number", "S.No", "S No"])),
-        toTimestamp(firstValue(row, ["Date & Time", "Date Time", "Timestamp", "Recorded At"])),
+        toTimestamp(
+          firstValue(row, [
+            "Date & Time",
+            "Date Time",
+            "Timestamp",
+            "Recorded At",
+            "recorded_at",
+            "epoch_time",
+          ])
+        ),
         firstValue(row, ["Name"]) || null,
         firstValue(row, ["Designation"]) || null,
         firstValue(row, ["Station No", "Station"]) || null,
@@ -115,8 +77,8 @@ router.post("/survey", async (req, res) => {
         firstValue(row, ["Curve Out"]) || null,
         firstValue(row, ["OHE Mast (OHEM) Location"]) || null,
         firstValue(row, ["Switch Expansion Joint (SEJ)"]) || null,
-        toNumber(firstValue(row, ["Lattitude", "Latitude"])),
-        toNumber(firstValue(row, ["Longitude"])),
+        toNumber(firstValue(row, ["Lattitude", "Latitude", "GPS Latitude", "lat"])),
+        toNumber(firstValue(row, ["Longitude", "GPS Longitude", "lon", "lng"])),
         toNumber(firstValue(row, ["Distance", "Distance (m)"])),
         toNumber(firstValue(row, ["Gauge", "Gauge (mm)"])),
         toNumber(firstValue(row, ["Crosslevel", "Cross Level"])),

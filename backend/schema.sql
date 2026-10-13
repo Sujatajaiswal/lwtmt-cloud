@@ -87,6 +87,7 @@ ALTER TABLE survey_records DROP COLUMN IF EXISTS station;
 ALTER TABLE survey_records ADD COLUMN IF NOT EXISTS name TEXT;
 ALTER TABLE survey_records ADD COLUMN IF NOT EXISTS designation TEXT;
 ALTER TABLE survey_records ADD COLUMN IF NOT EXISTS station_no TEXT;
+ALTER TABLE survey_records ADD COLUMN IF NOT EXISTS recorded_at TIMESTAMPTZ;
 ALTER TABLE survey_records ADD COLUMN IF NOT EXISTS bridge_start TEXT;
 ALTER TABLE survey_records ADD COLUMN IF NOT EXISTS bridge_end TEXT;
 ALTER TABLE survey_records ADD COLUMN IF NOT EXISTS level_crossing_lc_in TEXT;
@@ -98,6 +99,8 @@ ALTER TABLE survey_records ADD COLUMN IF NOT EXISTS curve_out TEXT;
 ALTER TABLE survey_records ADD COLUMN IF NOT EXISTS ohe_mast_location TEXT;
 ALTER TABLE survey_records ADD COLUMN IF NOT EXISTS switch_expansion_joint TEXT;
 ALTER TABLE survey_records ADD COLUMN IF NOT EXISTS crosslevel DOUBLE PRECISION;
+ALTER TABLE survey_records ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION;
+ALTER TABLE survey_records ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION;
 
 DO $$
 BEGIN
