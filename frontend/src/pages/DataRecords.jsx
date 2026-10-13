@@ -45,7 +45,21 @@ export default function DataRecords() {
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [exportError, setExportError] = useState("");
+  const [downloadingSurveyId, setDownloadingSurveyId] = useState(null);
   const hasTimeRange = Boolean(timeRange.start && timeRange.end);
+
+  async function handleExcelDownload(record) {
+    setExportError("");
+    setDownloadingSurveyId(record.survey_id);
+    try {
+      await api.downloadExcel(record.survey_id, record.filename);
+    } catch (downloadError) {
+      setExportError(downloadError.message);
+    } finally {
+      setDownloadingSurveyId(null);
+    }
+  }
 
   useEffect(() => {
     setLoading(true);
@@ -86,6 +100,7 @@ export default function DataRecords() {
 
       {loading && <div className="loading-text">Loading CSV records...</div>}
       {error && <div className="error-text">{error}</div>}
+      {exportError && <div className="error-text" role="alert">{exportError}</div>}
 
       {!loading && !error && records.length === 0 && (
         <div className="empty-state">
@@ -126,9 +141,14 @@ export default function DataRecords() {
                       return (
                         <td key={column.key}>
                           <div className="table-action-group">
-                            <a className="table-action-btn" href={record.export_excel_url}>
-                              Excel
-                            </a>
+                            <button
+                              type="button"
+                              className="table-action-btn"
+                              onClick={() => handleExcelDownload(record)}
+                              disabled={downloadingSurveyId !== null}
+                            >
+                              {downloadingSurveyId === record.survey_id ? "Preparing..." : "Excel"}
+                            </button>
                           </div>
                         </td>
                       );

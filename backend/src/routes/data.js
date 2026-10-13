@@ -543,6 +543,9 @@ router.get("/records/export", requireAuth, async (req, res) => {
       : null;
 
     if (format === "excel") {
+      if (!getExportPassword()) {
+        return res.status(503).json({ error: "Download password is not configured on the backend" });
+      }
       const filename = survey ? surveyFilename(survey, "xlsx") : filenameFor(station, "xlsx");
       const buffer = await recordsToProtectedExcel(records, station);
       return sendProtectedExcel(res, buffer, filename, disposition);
@@ -557,6 +560,9 @@ router.get("/records/export", requireAuth, async (req, res) => {
       const emptyRecords = [];
 
       if (format === "excel") {
+        if (!getExportPassword()) {
+          return res.status(503).json({ error: "Download password is not configured on the backend" });
+        }
         const filename = filenameFor(station, "xlsx");
         const buffer = await recordsToProtectedExcel(emptyRecords, station);
         return sendProtectedExcel(res, buffer, filename, disposition);

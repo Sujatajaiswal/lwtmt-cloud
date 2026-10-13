@@ -51,6 +51,48 @@ async function request(path, options = {}) {
   return body;
 }
 
+async function downloadExcel(surveyId, sourceFilename) {
+  if (!API_BASE_URL) {
+    throw new Error("Missing VITE_API_BASE_URL. Set it to the backend Render URL ending in /api.");
+  }
+
+  const params = new URLSearchParams({ format: "excel", surveyId });
+  const response = await fetch(`${API_BASE_URL}/records/export?${params.toString()}`, {
+    credentials: "include",
+    headers: authToken ? { Authorization: ["Bearer", authToken].join(" ") } : {},
+  });
+
+  if (!response.ok) {
+    let error = null;
+    try {
+      error = await response.json();
+    } catch {
+      // The server may return a non-JSON error response.
+    }
+    throw new Error(error?.error || `Download failed (${response.status})`);
+  }
+
+  const blob = await response.blob();
+  const contentDisposition = response.headers.get("Content-Disposition") || "";
+  const filenameMatch =
+    contentDisposition.match(/filename\*=UTF-8''([^;]+)/i) ||
+    contentDisposition.match(/filename="?([^";]+)"?/i);
+  const fallbackName = `${String(sourceFilename || `survey_${surveyId}`)
+    .replace(/\.[^.]+$/, "")
+    .replace(/[^a-z0-9_-]+/gi, "_")}.xlsx`;
+  const filename = filenameMatch
+    ? decodeURIComponent(filenameMatch[1].replace(/^"|"$/g, ""))
+    : fallbackName;
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = objectUrl;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+}
+
 export const api = {
   login: (username, password) =>
     request("/login", { method: "POST", body: JSON.stringify({ username, password }) }).then((res) => {
@@ -80,6 +122,7 @@ export const api = {
     const params = new URLSearchParams({ surveyId });
     return request(`/records/view?${params.toString()}`);
   },
+  downloadExcel,
   recordsExportUrl: (start, end, station, format) => {
     const params = new URLSearchParams({ format });
     if (start) params.set("start", start);
